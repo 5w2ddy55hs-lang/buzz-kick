@@ -646,6 +646,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
       <ul class="tips">
         <li><b>BUZZ</b><span>神プレーで溜まる。Lvごとに足とシュートが強化。MAXでルーレットが回り、観客が乱入する</span></li>
         <li><b>パス</b><span>受け手はボールに自動で寄る。間に相手がいると浮き球で越える。守備中は何も触らなければ操作キャラが自動でプレス、チェンジはいちばん早く守備に戻れる味方へ</span></li>
+        <li><b>空中戦</b><span>浮き球は自分宛てなら胸で落とせる。相手の浮き球に飛び込めばヘディングでクリア。守備のタックルはスライディング、相手もときどき滑ってくる</span></li>
         <li><b>コンボ</b><span>相手に取られる前にプレーをつなぐほど、いいねの倍率が上がる</span></li>
         <li><b>サウンド</b><span>歓声は同接が増えるほど大きくなる。乱入した観客と警察はしゃべる（端末によっては掛け声になる）</span></li>
         <li><b>同接</b><span>見せ場のたびに増える。失点したり、見せ場のない時間が続いたりすると視聴者が離れていく</span></li>
@@ -1867,7 +1868,7 @@ let ANIM=null;
 function loadAnim(){
   fetch(ANIM_URL).then(r=>r.ok?r.json():null).then(j=>{
     if (!j || !j.clips || !j.bones) return;
-    j.NB=j.bones.length; ANIM=j;
+    j.NB=j.bones.length; ANIM=j; loadMotion(()=>{});
     const C=animClip('offensive idle'); j.hipRef = C ? C.P[1] : 1042;
   }).catch(()=>{});
 }
@@ -1930,28 +1931,37 @@ function setAct(p,name,t0=0){ const id=ACT[name]; if (!id) return; p.act={ id, t
 const JOG8=['jog forward','jog forward diagonal (2)','jog strafe left','jog backward diagonal (2)','jog backward','jog backward diagonal','jog strafe right','jog forward diagonal'];
 const _pa=new Float32Array(88), _pb=new Float32Array(88);
 // full-body pose of an X Bot rig from the pose record: locomotion (idle / 8-way jog / keeper shuffle) + action on top
-function animRig(R,v){
-  if (!R.MB){ R.MB={}; for (const n of ANIM.bones) R.MB[n]=R.root.getObjectByName('mixamorig'+n); R.hipY0=R.MB.Hips.position.y; R.seed=Math.random()*20; R.prev=new Float32Array(ANIM.NB*4); R.prevH=1; R.fresh=true; }
-  const NB=ANIM.NB, A=_pa.length>=NB*4?_pa:new Float32Array(NB*4), B=_pb.length>=NB*4?_pb:new Float32Array(NB*4);
-  const amp=v[4], ph=v[3], ang=v[10], id=v[11]|0, at=v[12];
-  let h=animSample(R.gk?'goalkeeper idle':'offensive idle', G.realT+R.seed, true, A);
+const KICK_ACT={ c:'kick soccerball', a:0.22, b:0.57, sp:1.4 };
+// locomotion (idle / 8-way jog / keeper shuffle) + action on top, smoothed into R.prev; returns nothing, fills R.prev/R.prevH
+function mocapPose(R,v,sample,clipDur){
+  const NB=ANIM.NB, A=_pa, B=_pb;
+  const amp=v[4], ph=v[3], ang=v[10], at=v[12];
+  let id=v[11]|0, act=id && ACTS[id], t=at;
+  if (!act && v[8]>0 && R.kickAsAct){ act=KICK_ACT; t=0.25-v[8]; }
+  let h=sample(R.gk?'goalkeeper idle':'offensive idle', G.realT+R.seed, true, A);
   const w=clamp((amp-0.05)/0.22,0,1);
   if (w>0){
     let clip, frac;
     if (R.gk && amp<0.8 && Math.abs(Math.abs(ang)-Math.PI/2)<0.65){ clip = ang>0 ? 'goalkeeper sidestep' : 'goalkeeper sidestep (2)'; frac=((ph/Math.PI)%1+1)%1; }
     else { clip=JOG8[((Math.round(ang/(Math.PI/4))%8)+8)%8]; frac=((ph/(Math.PI*2))%1+1)%1; }
-    const C=animClip(clip); const h2=animSample(clip, frac*(C?C.dur:1), true, B); poseMix(A,B,w,A); h+=(h2-h)*w;
+    const h2=sample(clip, frac*clipDur(clip), true, B); poseMix(A,B,w,A); h+=(h2-h)*w;
   }
-  if (id && ACTS[id]){
-    const d=ACTS[id], len=actLen(d);
-    let ct=d.a+at*d.sp; if (d.loop) ct=d.a+((at*d.sp)%(d.b-d.a)); else ct=Math.min(d.b,ct);
-    const h3=animSample(d.c, ct, false, B);
-    const wa=(d.loop||d.hold) ? Math.min(1,at/0.1+0.25) : clamp(Math.min(at/0.07+0.3, (len-at)/0.12),0,1);
+  if (act){
+    const d=act, len=actLen(d);
+    let ct=d.a+t*d.sp; if (d.loop) ct=d.a+((t*d.sp)%(d.b-d.a)); else ct=Math.min(d.b,ct);
+    const h3=sample(d.c, ct, false, B);
+    const wa=(d.loop||d.hold) ? Math.min(1,t/0.1+0.25) : clamp(Math.min(t/0.07+0.3, (len-t)/0.12),0,1);
     poseMix(A,B,wa,A); h+=(h3-h)*wa;
   }
   // glide between states instead of snapping (direction changes, action ends)
-  const k = R.fresh ? 1 : 1-Math.exp(-(G.frameDt||0.016)*16);
+  const k = (R.fresh || !G.frameDt) ? 1 : 1-Math.exp(-G.frameDt*16);   // paused / stepped by hand: no glide
   poseMix(R.prev,A,k,R.prev); R.prevH+=(h-R.prevH)*k; R.fresh=false;
+}
+const animDur = n => { const C=animClip(n); return C?C.dur:1; };
+function animRig(R,v){
+  if (!R.MB){ R.MB={}; for (const n of ANIM.bones) R.MB[n]=R.root.getObjectByName('mixamorig'+n); R.hipY0=R.MB.Hips.position.y; R.seed=Math.random()*20; R.prev=new Float32Array(ANIM.NB*4); R.prevH=1; R.fresh=true; }
+  const id=v[11]|0, NB=ANIM.NB;
+  mocapPose(R,v,animSample,animDur);
   for (let b=0;b<NB;b++){ const o=R.MB[ANIM.bones[b]]; if (o) o.quaternion.set(R.prev[b*4],R.prev[b*4+1],R.prev[b*4+2],R.prev[b*4+3]); }
   R.MB.Hips.position.y=R.hipY0*R.prevH;
   // standing shot keeps the hand-picked kick clip for body and legs
@@ -2124,6 +2134,89 @@ function buildStaticProto(def, skinScene){
   root.scale.setScalar(sc); root.position.set(-(box.max.x+box.min.x)/2*sc, -box.min.y*sc, -(box.max.z+box.min.z)/2*sc);
   return { root };
 }
+const RT_MAP={ Hips:'hip', Spine:'spine_01', Spine1:'spine_02', Spine2:'spine_03', Neck:'neck', Head:'head',
+  LeftShoulder:'shoulder_l', LeftArm:'upperarm_l', LeftForeArm:'lowerarm_l', LeftHand:'hand_l', RightShoulder:'shoulder_r', RightArm:'upperarm_r', RightForeArm:'lowerarm_r', RightHand:'hand_r',
+  LeftUpLeg:'upperleg_l', LeftLeg:'lowerleg_l', LeftFoot:'foot_l', LeftToeBase:'ball_l', RightUpLeg:'upperleg_r', RightLeg:'lowerleg_r', RightFoot:'foot_r', RightToeBase:'ball_r' };
+const RT_CHILD={ Hips:'Spine', Spine:'Spine1', Spine1:'Spine2', Spine2:'Neck', Neck:'Head', LeftShoulder:'LeftArm', LeftArm:'LeftForeArm', LeftForeArm:'LeftHand',
+  RightShoulder:'RightArm', RightArm:'RightForeArm', RightForeArm:'RightHand', LeftUpLeg:'LeftLeg', LeftLeg:'LeftFoot', LeftFoot:'LeftToeBase', RightUpLeg:'RightLeg', RightLeg:'RightFoot', RightFoot:'RightToeBase' };
+// Straighten the scan's rest pose into the clips' T-pose (bone directions), then every frame carry each bone's world-space
+// change from that T-pose across and turn it back into the scan rig's local rotations.
+function buildRetarget(pr){
+  if (!ANIM || !motion) return undefined;
+  const Q=THREE.Quaternion, V=THREE.Vector3, bones=ANIM.bones, NB=bones.length;
+  const X=motion.root; X.updateMatrixWorld(true);
+  const xb=n=>X.getObjectByName('mixamorig'+n);
+  if (bones.some(n=>!xb(n))) return null;
+  const sRestW=bones.map(n=>xb(n).getWorldQuaternion(new Q()));
+  const sPar=bones.map(n=>bones.indexOf(xb(n).parent.name.replace('mixamorig','')));
+  const sRootW=xb('Hips').parent.getWorldQuaternion(new Q());
+  const sDir=bones.map(n=>RT_CHILD[n] ? xb(RT_CHILD[n]).getWorldPosition(new V()).sub(xb(n).getWorldPosition(new V())).normalize() : null);
+  const S=pr.scene; S.updateMatrixWorld(true);
+  const all={}; S.traverse(o=>{ if (o.name) all[o.name]=o; });
+  const find=suf=>{ for (const k in all) if (k.endsWith('_'+suf)) return all[k]; return null; };
+  const T=bones.map(n=>find(RT_MAP[n])); if (T.some(o=>!o)) return null;
+  const tPar=[], inter=[];
+  T.forEach((o,i)=>{ const q=new Q(); let a=o.parent; while (a && !T.includes(a)){ q.premultiply(a.quaternion); a=a.parent; } tPar[i]= a ? T.indexOf(a) : -1; inter[i]=q; });
+  const rootW = T[0].parent.getWorldQuaternion(new Q());
+  const restL=T.map(o=>o.quaternion.clone());
+  const toChild=bones.map((n,i)=>RT_CHILD[n] ? T[i].worldToLocal(T[bones.indexOf(RT_CHILD[n])].getWorldPosition(new V())) : null);
+  const tW=[], tmp=new Q();
+  for (let i=0;i<NB;i++){
+    const W=(tPar[i]<0 ? rootW.clone() : tW[tPar[i]].clone()).multiply(tPar[i]<0 ? new Q() : inter[i]).multiply(restL[i]);
+    if (sDir[i] && toChild[i].lengthSq()>1e-8){ const cur=toChild[i].clone().applyQuaternion(W).normalize(); W.premultiply(tmp.setFromUnitVectors(cur, sDir[i])); }
+    tW[i]=W;
+  }
+  const twists=[]; S.traverse(o=>{ if (/_twist_/.test(o.name)) twists.push({ name:o.name, q:o.quaternion.clone() }); });
+  return { names:T.map(o=>o.name), sRestWi:sRestW.map(q=>q.clone().invert()), sPar, sRootW, tPar, inter, rootW, tW, hipRest:T[0].position.clone(), twists, clips:{} };
+}
+// one clip of the library in the scan rig's local rotations (computed on first use)
+function rtClip(rt,name){
+  if (rt.clips[name]) return rt.clips[name];
+  const C=animClip(name); if (!C) return null;
+  const NB=ANIM.NB, n=C.n, out=new Float32Array(n*NB*4), sW=[], tWf=[], q=new THREE.Quaternion(), d=new THREE.Quaternion(), pw=new THREE.Quaternion();
+  for (let i=0;i<NB;i++){ sW.push(new THREE.Quaternion()); tWf.push(new THREE.Quaternion()); }
+  for (let k=0;k<n;k++){
+    for (let i=0;i<NB;i++){
+      const o=(k*NB+i)*4; q.set(C.Q[o]/32767,C.Q[o+1]/32767,C.Q[o+2]/32767,C.Q[o+3]/32767).normalize();
+      sW[i].copy(rt.sPar[i]<0 ? rt.sRootW : sW[rt.sPar[i]]).multiply(q);
+      d.copy(sW[i]).multiply(rt.sRestWi[i]);                       // world change from the T-pose
+      tWf[i].copy(d).multiply(rt.tW[i]);
+      pw.copy(rt.tPar[i]<0 ? rt.rootW : tWf[rt.tPar[i]]); if (rt.tPar[i]>=0) pw.multiply(rt.inter[i]);
+      q.copy(pw).invert().multiply(tWf[i]).normalize();
+      out[o]=q.x; out[o+1]=q.y; out[o+2]=q.z; out[o+3]=q.w;
+    }
+  }
+  return rt.clips[name]={ dur:C.dur, n, Q:out, P:C.P };
+}
+function rtSampler(rt){
+  return (name,t,loop,out)=>{
+    const C=rtClip(rt,name); if (!C) return 1;
+    const N=C.n-1, NB=ANIM.NB, Q=C.Q; let f=t*ANIM.fps;
+    if (loop){ f%=N; if (f<0) f+=N; } else f=clamp(f,0,N);
+    const i0=Math.floor(f), i1=Math.min(N,i0+1), a=f-i0;
+    for (let b=0;b<NB;b++){
+      const o0=(i0*NB+b)*4, o1=(i1*NB+b)*4; let x1=Q[o1], y1=Q[o1+1], z1=Q[o1+2], w1=Q[o1+3];
+      if (Q[o0]*x1+Q[o0+1]*y1+Q[o0+2]*z1+Q[o0+3]*w1<0){ x1=-x1; y1=-y1; z1=-z1; w1=-w1; }
+      const x=Q[o0]+(x1-Q[o0])*a, y=Q[o0+1]+(y1-Q[o0+1])*a, z=Q[o0+2]+(z1-Q[o0+2])*a, w=Q[o0+3]+(w1-Q[o0+3])*a, l=Math.hypot(x,y,z,w)||1;
+      out[b*4]=x/l; out[b*4+1]=y/l; out[b*4+2]=z/l; out[b*4+3]=w/l;
+    }
+    return (C.P[i0*3+1]+(C.P[i1*3+1]-C.P[i0*3+1])*a)/ANIM.hipRef;
+  };
+}
+// scan rigs: their own clip while standing about, the soccer clips when running or doing something
+function ownMocap(R,v){
+  const pr=R.pr;
+  if (pr.rt===undefined) pr.rt=buildRetarget(pr);
+  if (!pr.rt) return false;
+  const rt=pr.rt, NB=ANIM.NB;
+  if (!R.N){ R.N=rt.names.map(n=>R.all[n]); R.tw=rt.twists.map(t=>({ o:R.all[t.name], q:t.q })).filter(t=>t.o); R.prev=new Float32Array(NB*4); R.prevH=1; R.seed=R.seed||Math.random()*20; R.kickAsAct=true; R.sample=rtSampler(rt); R.rdur=n=>{ const C=rtClip(rt,n); return C?C.dur:1; }; }
+  if (R.mode!=='mocap'){ for (let b=0;b<NB;b++){ const q=R.N[b].quaternion; R.prev[b*4]=q.x; R.prev[b*4+1]=q.y; R.prev[b*4+2]=q.z; R.prev[b*4+3]=q.w; } R.prevH=1; R.fresh=false; R.mode='mocap'; }
+  mocapPose(R,v,R.sample,R.rdur);
+  for (const t of R.tw) t.o.quaternion.copy(t.q);
+  for (let b=0;b<NB;b++) R.N[b].quaternion.set(R.prev[b*4],R.prev[b*4+1],R.prev[b*4+2],R.prev[b*4+3]);
+  R.N[0].position.set(rt.hipRest.x, rt.hipRest.y*R.prevH, rt.hipRest.z);
+  return true;
+}
 const OWN_LEGS=['upperleg_l','upperleg_r','lowerleg_l','lowerleg_r'], OWN_ARMS=['upperarm_l','upperarm_r','lowerarm_l','lowerarm_r'];
 function buildOwnProto(def, gltf){
   if (!THREE.SkeletonUtils) throw new Error('SkeletonUtils');
@@ -2167,7 +2260,7 @@ function makeSkinInstance(id){
     const m={}; inst.traverse(o=>{ if (o.name) m[o.name]=o; });
     const B={}; for (const n of OWN_LEGS.concat(OWN_ARMS)) for (const k in m) if (k.endsWith('_'+n)) B[n]=m[k];
     const tracks=pr.tracks.map(t=>({ o:m[t.node], path:t.path, interp:t.interp })).filter(t=>t.o);
-    wrap.userData.rig={ own:pr.own, dur:pr.dur, t0:pr.t0, idleT:pr.idleT, armT:pr.armT, axes:pr.legAxes, B, seed:Math.random()*pr.dur, tracks,
+    wrap.userData.rig={ own:pr.own, pr, all:m, dur:pr.dur, t0:pr.t0, idleT:pr.idleT, armT:pr.armT, axes:pr.legAxes, B, seed:Math.random()*pr.dur, tracks,
       armTracks: pr.armT!==null ? tracks.filter(t=>t.path==='quaternion' && /_(upper|lower)arm/.test(t.o.name)) : [] };
   } else if (pr.rig){
     const holder=new THREE.Group(), rig=pr.rig.clone(true); holder.add(rig);
@@ -2233,6 +2326,7 @@ function applySkins(){
   }
 }
 function poseOwn(R,v){
+  if (ANIM && motion && R.pr && (v[4]>0.1 || (v[11]|0) || v[8]>0) && ownMocap(R,v)) return;
   const amp=v[4], ph=v[3], kick=v[8], moving=amp>0.08, span=Math.max(0.1,R.dur-R.t0);
   let t;
   if (kick>0) t = R.own==='walk' ? R.idleT : R.t0;            // kick from the reference stance
@@ -2251,6 +2345,11 @@ function poseOwn(R,v){
     }
   }
   if (kick>0){ const p=1-kick/0.25, s=Math.sin(Math.PI*p); rot('upperleg_r',-1.25*s); rot('lowerleg_r',0.7*Math.sin(Math.PI*Math.min(1,p*1.8))*(1-p)); }
+  if (R.mode==='mocap'){ R.mode='own'; R.back=1; }
+  if (R.back>0 && R.N){
+    R.back-= G.frameDt ? G.frameDt/0.25 : 1; const w=1-Math.max(0,R.back), q=new THREE.Quaternion();
+    for (let b=0;b<R.N.length;b++){ const o=R.N[b]; q.set(R.prev[b*4],R.prev[b*4+1],R.prev[b*4+2],R.prev[b*4+3]); o.quaternion.copy(q.slerp(o.quaternion,w)); }
+  }
 }
 // drive the rig from the same pose record the chibi uses (works for live play and replays)
 const _rq=new THREE.Quaternion();
