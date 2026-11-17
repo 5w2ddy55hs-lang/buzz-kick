@@ -45,6 +45,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .btn.alt{background:var(--paper);box-shadow:5px 5px 0 var(--mint)}
 .btn.alt:hover{box-shadow:7px 7px 0 var(--mint)}
 .btn.alt:active{box-shadow:2px 2px 0 var(--mint)}
+.btn.warn{background:var(--live);color:#fff;border-color:transparent}
 .btn.ghost{background:transparent;color:var(--paper);border-color:var(--line2);box-shadow:none;font-size:14px}
 .btn.ghost:hover{background:rgba(255,255,255,.06);transform:none}
 .btn.ghost:active{transform:translateY(1px)}
@@ -124,7 +125,8 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 
 #sc{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:46%;width:min(250px,62vw);border-radius:12px;overflow:hidden;pointer-events:none;
   transform:translateX(-120%);transition:transform .35s cubic-bezier(.2,1.2,.4,1);box-shadow:0 6px 18px rgba(0,0,0,.4)}
-#sc.on{transform:none}
+#sc{visibility:hidden;transition:transform .35s cubic-bezier(.2,1.2,.4,1),visibility 0s .35s}
+#sc.on{transform:none;visibility:visible;transition:transform .35s cubic-bezier(.2,1.2,.4,1),visibility 0s}
 @media (max-aspect-ratio:3/4){ #sc{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 240px)} }
 #sc .h{display:flex;justify-content:space-between;gap:8px;padding:7px 10px;font:900 12px/1.2 var(--body);background:#e2a400;color:#1a1000}
 #sc .h b{font:400 14px/1.1 var(--display)}
@@ -153,6 +155,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 /* ---------- touch ---------- */
 #touch{position:absolute;inset:0;pointer-events:none}
 #stickZone{position:absolute;left:0;bottom:0;width:52%;height:62%;pointer-events:auto}
+#stick .stl{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);font:900 12px/1 var(--body);color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}
 #stick{position:fixed;left:0;top:0;width:126px;height:126px;margin:-63px 0 0 -63px;border-radius:50%;opacity:.5;transition:opacity .15s;
   background:radial-gradient(circle,rgba(13,8,34,.15) 0 55%,rgba(13,8,34,.4) 56%);box-shadow:inset 0 0 0 2px rgba(245,242,255,.45)}
 #stick:before{content:"";position:absolute;inset:12px;border-radius:50%;border:1px dashed rgba(245,242,255,.25)}
@@ -259,6 +262,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .stat{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:var(--r-s);padding:8px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .stat small{font:700 11px/1.2 var(--body);color:var(--dim)}
 .stat b{font:400 18px/1.1 var(--display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat b .endv{display:block;margin-top:3px;font:700 11px/1.2 var(--body);color:var(--dim)}
 .stat.key{background:rgba(255,233,77,.1);border-color:rgba(255,233,77,.4)}
 .stat.key b{color:var(--lemon)}
 .xpbox{display:flex;flex-direction:column;gap:10px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:var(--r);padding:12px}
@@ -327,6 +331,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .greveal b{font:400 clamp(22px,5vw,30px)/1.15 var(--display);color:#fff;text-shadow:3px 3px 0 var(--ink)}
 .greveal small{font:700 12px var(--body);color:var(--dim)}
 .greveal em{font:900 12px/1 var(--body);font-style:normal;padding:5px 10px;border-radius:999px}
+.greveal .btn{min-height:38px;padding:6px 18px;font-size:14px;margin-top:4px}
 .greveal em.new{background:var(--mint);color:var(--ink)} .greveal em.dupe{background:rgba(255,255,255,.14);color:var(--paper)}
 .gpick{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r);background:linear-gradient(90deg,rgba(255,79,163,.22),rgba(255,233,77,.16),rgba(63,245,208,.18));border:1.5px solid rgba(255,233,77,.55)}
 .gpick .rar{font-size:18px;padding:4px 9px}
@@ -522,7 +527,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
     </div>
     <div id="comments"></div>
     <div id="hearts"></div>
-    <div id="sc"><div class="h"><span id="scName">名無し</span><b id="scAmt">¥500</b></div><div class="m" id="scMsg">ナイス</div></div>
+    <div id="sc"><div class="h"><span id="scName"></span><b id="scAmt"></b></div><div class="m" id="scMsg"></div></div>
     <div id="charge" hidden><i id="chargeFill"></i><s id="chargeZone"></s></div>
     <div id="combo" hidden><b id="comboN">0</b><span class="cl">COMBO</span><em id="comboX">いいね x1.0</em><div class="cbar"><i id="comboBar"></i></div></div>
     <div id="pops"></div>
@@ -540,7 +545,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
   <div id="replay" hidden><div class="tag"><i></i>REPLAY<small>切り抜き</small></div><div class="skip">タップでスキップ</div></div>
 
   <div id="touch" hidden>
-    <div id="stickZone"><div id="stick"><i></i></div></div>
+    <div id="stickZone"><div id="stick"><i></i><span class="stl">移動</span></div></div>
     <div class="btns">
       <button class="tbtn" id="bPass" aria-label="パス"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6"/></svg><span id="bPassL">パス</span></button>
       <button class="tbtn" id="bDash" aria-label="ダッシュ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h6.5L9 22l10-13h-6.8z"/></svg><span id="bDashL">ダッシュ</span></button>
@@ -630,8 +635,9 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
         <li><b>BUZZ</b><span>神プレーで溜まる。Lvごとに足とシュートが強化。MAXでルーレットが回り、観客が乱入する</span></li>
         <li><b>パス</b><span>受け手はボールに自動で寄る。間に相手がいると浮き球で越える。守備中は何も触らなければ操作キャラが自動でプレス、チェンジはいちばん早く守備に戻れる味方へ</span></li>
         <li><b>コンボ</b><span>相手に取られる前にプレーをつなぐほど、いいねの倍率が上がる</span></li>
-        <li><b>サウンド</b><span>歓声は同接が増えるほど大きくなる。乱入した観客と警察はしゃべる（端末に日本語音声があれば読み上げ、なければ合成の掛け声）</span></li>
-        <li><b>必殺</b><span>BUZZ MAXか10コンボで1回ぶん貯まる。軌道上の選手を全員吹き飛ばしてゴールに突き刺さる</span></li>
+        <li><b>サウンド</b><span>歓声は同接が増えるほど大きくなる。乱入した観客と警察はしゃべる（端末によっては掛け声になる）</span></li>
+        <li><b>同接</b><span>見せ場のたびに増える。失点したり、見せ場のない時間が続いたりすると視聴者が離れていく</span></li>
+        <li><b>必殺</b><span>BUZZ MAXか10コンボで1回ぶん貯まる。2点差以上で負けていると、応援スパチャで1回ぶんもらえる。軌道上の選手を全員吹き飛ばしてゴールに突き刺さる</span></li>
         <li><b>PERFECT</b><span>シュートゲージの金色ゾーンで離すと、速くて正確なシュートになる</span></li>
         <li><b>ガチャ</b><span>試合とレベルアップで券がもらえる。当たりは選手スキンやボール、軌跡などの見た目。ピックアップは30回で確定、入手後は30回ごとに未所持のURスキンが確定。さらに上の「超激レア」は0.3%、100回で確定</span></li>
       </ul>
@@ -702,7 +708,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
       <div class="gstage" id="gStage">
         <div class="rays"></div>
         <div class="capsule" id="gCap"><i></i></div>
-        <div class="greveal" id="gReveal" hidden><span class="rar" id="gRar">SSR</span><b id="gName">虹の軌跡</b><small id="gCat">シュートの軌跡</small><em id="gNew" class="new">NEW!</em></div>
+        <div class="greveal" id="gReveal" hidden><span class="rar" id="gRar">SSR</span><b id="gName">虹の軌跡</b><small id="gCat">シュートの軌跡</small><em id="gNew" class="new">NEW!</em><button class="btn" id="gEquip" hidden>つける</button></div>
       </div>
       <div class="gpity" id="gPity">SSR以上確定まで あと30回</div>
       <div class="actions"><button class="btn" id="gPull">1回引く</button><button class="btn alt" id="gClose">閉じる</button></div>
@@ -748,7 +754,13 @@ const HOME_AI = { run:5.95, sprint:7.9, steal:1.0, gkReact:0.25, gkDive:3.9, gkE
 const RIVALS = ['ぴえんFC','チルい東京','沼ユナイテッド','タイパ最強団','推し活シティ','深夜テンションズ','エモ横丁SC','わかりみ連合'];
 const HANDLES = ['名無しのサポ','ねこまる','ryo_futsal','深夜のまかない','チル太郎','推しはGK','通りすがりのアラ','ピヴォ大好き','屋上の民','終電逃した人','切り抜き職人','たこ焼きP'];
 const POOL = {
-  idle:['初見です','見てる','BGMいいね','屋上エモい','夜景きれい','がんばれー','作業用に流してる','この時間帯好き','チルい','わこつ','今北','画質いいな','月でかい','自販機ある屋上いいな','ピヴォ動けてる'],
+  idle:['見てる','BGMいいね','屋上エモい','夜景きれい','がんばれー','作業用に流してる','この時間帯好き','チルい','画質いいな','月でかい','自販機ある屋上いいな','ピヴォ動けてる'],
+  idleEarly:['初見です','わこつ','今北','間に合った','はじまってた','通知から来た'],
+  idleLosing:['まだいける','守備どうした','流れ悪いな','逆転見せて','GKがんばれ','一点ずつ返そ','相手強くない?','これは厳しい'],
+  idleWinning:['このまま勝て','余裕ある','強すぎて草','完封いける?','安定感えぐい','相手かわいそう'],
+  idleDull:['動きないな','なんかしろw','眠くなってきた','攻めよう','パス回しタイム','画面止まってる?'],
+  idleChance:['打て!','チャンス','いけるぞ','シュート!','決めろ'],
+  idleDanger:['やばい','守れ!','戻って!','ピンチ'],
   kickoff:['はじまった','キックオフ!','いけー','勝てる勝てる','90秒一本勝負','わくわく'],
   goal:['ゴラッソ!!','8888888','神','うますぎて草','切り抜き確定','鳥肌','優勝','えぐい','は？天才？','ネット揺れた','きたあああ','エモすぎる','888888888'],
   longgoal:['そこから打つ!?','ロングシュートえぐ','距離バグってる','弾道エグすぎ'],
@@ -787,7 +799,14 @@ const POOL = {
 };
 const SP_NAMES = ['ネオン・メテオ','屋上流星シュート','バズ・ブレイカー','同接爆増キャノン','エモーショナル・ドライブ','チル・インパクト','タイパ・ストライク'];
 const ST_COLORS = ['#ff4fa3','#3ff5d0','#ffe94d','#8f7bff','#ff8a3d','#7fd6ff'];
-const SC_MSG = ['ゴラッソ代です','神ゴールありがとう','これで美味しいもの食べて','切り抜かせてください','推しが決めた…','明日も配信して','鳥肌たった','今日イチ'];
+const SC_MSG = {
+  goal:['ゴール代です','ナイスゴール!','これで美味しいもの食べて','推しが決めた…','明日も配信して','声出た','今日イチ'],
+  long:['ゴラッソ代です','その距離は反則','切り抜かせてください','鳥肌たった','弾道が美しすぎる'],
+  special:['必殺代です','画面割れたかと思った','全員吹っ飛んでて草','これは伝説','保存しました'],
+  sympathy:['ドンマイ、まだいける','これで逆転して','負けてても推す','応援スパチャです','一発かましてくれ'],
+  fever:['バズってるぞ!','トレンド入りおめ','サーバー代です','同接えぐい','今来た人に説明して'],
+  steal:['守備が光ってる','奪取うますぎ','その寄せ好き','守備代です'],
+};
 
 const rand = (a=0,b=1) => a + Math.random()*(b-a);
 const randn = () => { let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
@@ -988,7 +1007,7 @@ const Voice=(()=>{
   return {
     // call from a tap/click handler: plays a silent utterance so later speech is allowed
     unlock(){ if (!can || unlocked) return; try { pickV(); const u=new SpeechSynthesisUtterance(' '); u.volume=0; if (ja) u.voice=ja; speechSynthesis.speak(u); unlocked=true; } catch(e){} },
-    status(){ if (!can) return 'この環境は読み上げ非対応のため、合成の掛け声で代用します'; pickV(); return ja ? `日本語音声「${ja.name}」で読み上げます` : '日本語音声が見つからないため、合成の掛け声で代用します'; },
+    status(){ if (can) pickV(); return can && ja ? '観客と警察がしゃべります' : '観客と警察は掛け声で叫びます'; },
     test(){
       this.unlock(); AudioSys.init(); AudioSys.resume();
       const lines=[['推しに会いに来たー！','fan'],['そこの人、止まりなさい！','police']];
@@ -1650,12 +1669,13 @@ function rollGacha(){
   const it = r==='LR' ? pick(ITEMS.filter(q=>q.r==='LR')) : forced ? itemById(forced) : (r==='UR' && Math.random()<0.5) ? itemById(PICKUP) : pick(ITEMS.filter(q=>!q.def && q.r===r && q.id!==PICKUP));
   const isNew=!SV.own[it.id]; SV.own[it.id]=(SV.own[it.id]||0)+1;
   let dupeXP=0;
-  if (isNew) SV.eq[it.cat]=it.id; else { dupeXP=[20,40,80,200,500,1500][RORDER.indexOf(r)]; addXP(dupeXP); }
+  if (!isNew){ dupeXP=[20,40,80,200,500,1500][RORDER.indexOf(r)]; addXP(dupeXP); }
   saveSave();
   return { it, isNew, dupeXP };
 }
 let gachaBusy=false;
 function gachaStageReset(){
+  $('gEquip').hidden=true;
   $('gCap').className='capsule'; $('gCap').hidden=false; $('gReveal').hidden=true; $('gStage').className='gstage';
 }
 function updateProfileUI(){
@@ -1687,6 +1707,11 @@ function renderColl(){
     row.appendChild(chips); box.appendChild(row);
   }
 }
+function equipBtn(it){
+  const b=$('gEquip'), on=SV.eq[it.cat]===it.id;
+  b.hidden=false; b.disabled=on; b.textContent = on ? '装備中' : it.cat==='skin' ? 'チームに着せる' : 'つける';
+  b.onclick=()=>{ SV.eq[it.cat]=it.id; saveSave(); applyCosmetics(); renderColl(); updateProfileUI(); AudioSys.S.pop(); equipBtn(it); };
+}
 function openGacha(){ AudioSys.init(); AudioSys.resume(); $('gacha').hidden=false; gachaStageReset(); renderColl(); updateProfileUI(); $('gPull').focus({preventScroll:true}); }
 function closeGacha(){ if (gachaBusy) return; $('gacha').hidden=true; }
 function pullGacha(){
@@ -1706,9 +1731,9 @@ function pullGacha(){
     cap.className='capsule open'; stage.className='gstage r-'+r.toLowerCase();
     const rar=$('gRar'); rar.textContent=RLABEL[r]||r; rar.className='rar r-'+r.toLowerCase();
     $('gName').textContent=res.it.name; $('gCat').textContent=CAT_LABEL[res.it.cat];
-    const nw=$('gNew'); nw.textContent = res.isNew ? (lr ? '超激レア!! チームの選手が変身!!' : res.it.cat==='skin' ? 'NEW! チームの選手が変身!!' : 'NEW! 装備しました') : `かぶり +${res.dupeXP} XP`; nw.className = res.isNew ? 'new' : 'dupe';
+    const nw=$('gNew'); nw.textContent = res.isNew ? (lr ? '超激レア!! NEW!' : 'NEW!') : `かぶり +${res.dupeXP} XP`; nw.className = res.isNew ? 'new' : 'dupe';
+    equipBtn(res.it);
     rv.hidden=false; AudioSys.S.reveal(ri); if (ri>=3){ flash(ri>=4?'rainbow':'gold'); vib(lr?[80,40,80,40,120]:40); }
-    if (res.isNew) applyCosmetics();
     gachaBusy=false; renderColl(); updateProfileUI(); $('gPull').focus({preventScroll:true});
   }, lr ? 2300 : 1250);
 }
@@ -2436,7 +2461,11 @@ function onTake(p,prev,lk,how){
     return;
   }
   if (how==='steal') return;
-  if (p.recvByPass && home) { addLikes(40,p); addBuzz(2.5); comboAdd(1); }
+  if (p.recvByPass && home){
+    const gz=oppGoalZ(HOME), prog=Math.abs(lk.z-gz)-Math.abs(p.z-gz);
+    if (prog>=3){ addLikes(35,p,'ナイスパス'); addBuzz(3.5); } else { addLikes(8); addBuzz(1); }   // a square ball earns little
+    comboAdd(1);
+  }
   if (prev && prev.team!==p.team){
     if (home && !p.isGK){ addLikes(60,p,'カット'); addBuzz(3); comboAdd(1); if (Math.random()<0.3) say('steal'); }
     else if (!home && lk && lk.team===HOME && lk.type==='pass' && Math.random()<0.4) say('stolen');
@@ -2447,7 +2476,7 @@ function doSteal(q,o,tackle){
   if (G.human===o) G.charging=false;
   ball.owner=null; take(q,'steal'); AudioSys.S.tap();
   if (G.mode==='match'){
-    if (q.team===HOME){ G.stats.steals++; comboAdd(1); addLikes(tackle?220:150,q,tackle?'タックル':'カット'); addBuzz(tackle?10:7); say('steal'); }
+    if (q.team===HOME){ G.stats.steals++; comboAdd(1); addLikes(tackle?220:150,q,tackle?'タックル':'カット'); addBuzz(tackle?10:7); say('steal'); if (Math.random()<(tackle?0.35:0.2)) superChat('blue','steal'); }
     else if (o.team===HOME && Math.random()<0.7) say('stolen');
   }
 }
@@ -2650,7 +2679,7 @@ function scored(s){
     const perf = lk && lk.team===HOME && G.simTime-lk.t<3 && ball.perfect;
     let sub = own ? 'オウンゴールいただき' : long ? `ゴラッソ ${dist.toFixed(1)}m` : `${dist.toFixed(1)}mのシュート`;
     if (perf) sub='PERFECTシュート!! '+sub;
-    if (spName){ sub=`必殺「${spName}」`; addLikes(2500); superChat('red'); }
+    if (spName){ sub=`必殺「${spName}」`; addLikes(2500); superChat('red','special'); }
     if (modOn('goal2')){ G.score[HOME]++; updateScore(); sub='2点ゴール!! '+sub; }
     comboAdd(2);
     addLikes(2000+dist*160+(long?1500:0)+(perf?800:0), G.human, 'GOAL'); addBuzz(long?40:28);
@@ -2661,20 +2690,25 @@ function scored(s){
     if (spName) endCine();
     banner('GOAL!!', sub);
     say(long?'longgoal':'goal',5,'big'); say('goal',5);
-    superChat(long||fev ? 'red' : Math.random()<0.4 ? 'blue' : 'gold');
+    if (!spName) superChat(long||fev ? 'red' : Math.random()<0.4 ? 'blue' : 'gold', long ? 'long' : 'goal');
     const glv=buzzLv(); if (glv>=2) queueInvasion(0.35, glv>=3?3:2, 'goal');
   } else {
     AudioSys.S.groan(); AudioSys.S.crowd('ah',1);
     G.streak=0; comboEnd(false);
     G.buzz=Math.max(0,G.buzz-18);
+    const def=G.score[AWAY]-G.score[HOME], v0=G.viewers;
+    G.hype*=0.72; G.base=Math.max(20,G.base-(5+3*Math.max(0,def)));
+    const lost=Math.max(1,Math.round(v0-(G.base+G.hype)));
     banner('失点…', pick(['切り替えていこう','まだ時間ある','取り返そ']), {sad:true});
+    toast(`同接 -${fmt(lost)}人`);
     say('concede',4);
+    if (def>=2 && !G.sympSP && !G.sp){ G.sympSP=true; setTimeout(()=>{ if (G.mode!=='match' || G.phase==='end') return; superChat('blue','sympathy'); giveSP(); toast('応援スパチャで必殺解放'); }, 1900); }
   }
 }
 function addLikes(n,at,label){
   if (G.mode!=='match') return 0;
   const mult=(G.fever>0?(G.mod==='likes5'?5:3):1)*comboMul(), v=Math.round(n*mult);
-  G.likes+=v; G.hype+=v*0.06;
+  G.likes+=v; G.hype+=v*0.06; if (n>=100) G.dullT=0;
   if (at) popAt(at,(label?label+' ':'')+'+'+fmt(v), v>=2000?'big':v>=400?'mid':'');
   hearts(Math.min(7,1+Math.floor(v/250)));
   const lb=$('likesBox'); lb.classList.remove('bump'); void lb.offsetWidth; lb.classList.add('bump');
@@ -2683,7 +2717,7 @@ function addLikes(n,at,label){
 function addBuzz(n){
   if (G.mode!=='match' || G.fever>0) return;
   G.buzz+=n; G.lastBuzzT=G.realT;
-  if (G.buzz>=100){ G.buzz=100; G.fever=12; queueInvasion(1.2, clamp(5+Math.floor(G.viewers/350),5,NX_FAN), 'big'); banner('バズり中!!','いいね3倍 ＋ BUZZルーレット',{small:true}); spinRoulette(); giveSP(); AudioSys.S.crowd('roar',1); say('fever',5); AudioSys.S.fever(); AudioSys.setFever(true); }
+  if (G.buzz>=100){ G.buzz=100; G.fever=12; queueInvasion(1.2, clamp(5+Math.floor(G.viewers/350),5,NX_FAN), 'big'); banner('バズり中!!','いいね3倍 ＋ BUZZルーレット',{small:true}); superChat('gold','fever'); spinRoulette(); giveSP(); AudioSys.S.crowd('roar',1); say('fever',5); AudioSys.S.fever(); AudioSys.setFever(true); }
 }
 
 /* =========================================================
@@ -2717,12 +2751,13 @@ function toast(t){
     [{opacity:0,transform:'translateY(10px) scale(.9)'},{opacity:1,transform:'none',offset:.12},{opacity:1,transform:'none',offset:.8},{opacity:0,transform:'translateY(-8px)'}],
     {duration:1500,easing:'ease-out'}).onfinish=()=>el.remove();
 }
-const cmBox=$('comments'); let laneFree=[];
+const cmBox=$('comments'); let laneFree=[], saidRecent=[];
 function say(kind,n=1,cls){
   if (G.mode!=='match') return;
   const pool=POOL[kind]; if (!pool) return;
-  const bag=pool.slice().sort(()=>Math.random()-0.5);
-  for (let i=0;i<n;i++){ const t=bag[i%bag.length]; setTimeout(()=>spawnComment(t,cls), i*rand(90,260)); }
+  const fresh=pool.filter(t=>!saidRecent.includes(t)), bag=(fresh.length>=Math.min(n,pool.length)?fresh:pool).slice().sort(()=>Math.random()-0.5);
+  for (let i=0;i<n;i++){ const t=bag[i%bag.length]; saidRecent.push(t); setTimeout(()=>spawnComment(t,cls), i*rand(90,260)); }
+  if (saidRecent.length>24) saidRecent.splice(0,saidRecent.length-24);
 }
 function spawnComment(text,cls){
   if (G.mode!=='match' || cmBox.childElementCount>22) return;
@@ -2758,11 +2793,14 @@ function hearts(n){
   }
 }
 let scTimer=0;
-function superChat(kind){
+let scLast=[];
+function superChat(kind,ctx='goal'){
   const el=$('sc');
-  const amt = kind==='red' ? pick(['¥10,000','¥5,000']) : kind==='blue' ? pick(['¥200','¥300']) : pick(['¥500','¥1,000','¥2,000']);
+  const amt = kind==='red' ? pick(['¥10,000','¥5,000']) : kind==='blue' ? pick(['¥200','¥300','¥500']) : pick(['¥500','¥1,000','¥2,000']);
   el.className = kind==='red'?'red':kind==='blue'?'blue':'';
-  $('scName').textContent=pick(HANDLES); $('scAmt').textContent=amt; $('scMsg').textContent=pick(SC_MSG);
+  const fresh=a=>{ const f=a.filter(x=>!scLast.includes(x)); return pick(f.length?f:a); };
+  const name=fresh(HANDLES), msg=fresh(SC_MSG[ctx]||SC_MSG.goal); scLast=[name,msg,...scLast].slice(0,6);
+  $('scName').textContent=name; $('scAmt').textContent=amt; $('scMsg').textContent=msg;
   requestAnimationFrame(()=>el.classList.add('on'));
   clearTimeout(scTimer); scTimer=setTimeout(()=>el.classList.remove('on'),3800);
 }
@@ -2987,7 +3025,7 @@ function animateXP(lv0,xp0,gain){
   };
   requestAnimationFrame(stepXP);
 }
-function rankOf(l){ return l>=60000?'伝説の神回':l>=30000?'急上昇1位':l>=15000?'バズった':l>=6000?'じわ伸び':'身内ウケ'; }
+function rankOf(l,h=G.score[HOME],a=G.score[AWAY]){ if (a-h>=4 && l<15000) return '放送事故'; return l>=60000?'伝説の神回':l>=30000?'急上昇1位':l>=15000?'バズった':l>=6000?'じわ伸び':'身内ウケ'; }
 function countUp(el,v){
   if (reduceMotion){ el.textContent=fmt(v); return; }
   const t0=performance.now(), dur=1100;
@@ -2999,7 +3037,7 @@ function showResult(){
   const [h,a]=G.score, st=G.stats, rank=rankOf(G.likes);
   const wl=$('rWL'); wl.textContent = h>a?'WIN':h<a?'LOSE':'DRAW'; wl.className='wl'+(h>a?'':h<a?' lose':' draw');
   $('rH').textContent=h; $('rA').textContent=a; $('rAway').textContent=G.awayName; $('rRank').textContent=rank; const rb=$('rRank'); rb.classList.remove('stamp'); void rb.offsetWidth; rb.classList.add('stamp');
-  countUp($('rLikes'),G.likes); $('rPeak').textContent=fmt(G.peak)+'人'; $('rGoals').textContent=st.goals;
+  countUp($('rLikes'),G.likes); $('rPeak').innerHTML=fmt(G.peak)+'人<small class="endv">終了時 '+fmt(G.viewers)+'人</small>'; $('rGoals').textContent=st.goals;
   $('rFeints').textContent=st.feints; $('rOne').textContent=st.onetouch; $('rLong').textContent= st.longest>0 ? st.longest.toFixed(1)+'m' : '-';
   $('rLv').textContent = G.maxLv===4 ? 'MAX' : 'Lv'+G.maxLv; $('rInv').textContent = st.invaders+'人'; $('rCaught').textContent = st.caught+'人';
   const nb = G.likes>G.best; $('rBest').hidden=!nb;
@@ -3007,7 +3045,7 @@ function showResult(){
   $('rCombo').textContent=G.comboMax; $('rPerf').textContent=st.perfects; $('rSp').textContent=st.specials;
   // XP, level, tickets
   const win=h>a, beforeLv=SV.lv, beforeXp=SV.xp;
-  const gain=Math.round(G.likes/40)+(win?120:0)+st.goals*30, tix=1+(win?1:0);
+  const gain=20+Math.round(G.likes/40)+(win?120:0)+st.goals*30, tix=1+(win?1:0);   // 20 for finishing the stream
   SV.tickets+=tix; const ups=addXP(gain); SV.best=Math.max(SV.best||0,Math.round(G.likes)); saveSave();
   $('rTix').textContent=`ガチャ券 +${tix+ups}枚`; updateProfileUI();
   animateXP(beforeLv,beforeXp,gain);
@@ -3017,12 +3055,12 @@ function showResult(){
 }
 function resultText(){
   const [h,a]=G.score;
-  return `BUZZ KICK!!（${G.diff.label}）で ${G.awayName} に ${h}-${a} ${h>a?'勝利':h<a?'敗北':'引き分け'}｜いいね ${fmt(G.likes)}｜最大同接 ${fmt(G.peak)}人${G.stats.invaders?`｜乱入 ${G.stats.invaders}人（連行 ${G.stats.caught}人）`:''}｜評価「${rankOf(G.likes)}」 #バズキック #屋上フットサル`;
+  return `BUZZ KICK!!（${G.diff.label}）で ${G.awayName} に ${h}-${a} ${h>a?'勝利':h<a?'敗北':'引き分け'}｜いいね ${fmt(G.likes)}｜最大同接 ${fmt(G.peak)}人（終了時 ${fmt(G.viewers)}人）${G.stats.invaders?`｜乱入 ${G.stats.invaders}人（連行 ${G.stats.caught}人）`:''}｜評価「${rankOf(G.likes)}」 #バズキック #屋上フットサル`;
 }
 function startMatch(key){
   AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); Voice.unlock();
   G.mode='match'; G.diff=DIFFS[key]; applyParams();
-  G.score=[0,0]; G.clock=MATCH_TIME; G.buzz=0; G.fever=0; G.likes=0; G.hype=0; G.peak=87; G.viewers=87; G.said10=false; G.resultShown=false; G.paused=false;
+  G.score=[0,0]; G.clock=MATCH_TIME; G.buzz=0; G.fever=0; G.likes=0; G.hype=0; G.base=87; G.dullT=0; G.sympSP=false; G.peak=87; G.viewers=87; G.said10=false; G.resultShown=false; G.paused=false;
   G.stats={goals:0,feints:0,onetouch:0,longest:0,steals:0,shots:0,invaders:0,caught:0,perfects:0,specials:0,blasts:0};
   G.combo=0; G.comboT=0; G.comboMax=0; G.mod=null; G.streak=0; G.likesShown=0; G.hitstop=0; $('combo').hidden=true; $('roulette').hidden=true; $('toasts').innerHTML=''; $('comments').classList.remove('dim'); $('pops').innerHTML=''; G.idleT=4; G.hintT=10; G.lastLv=0; G.maxLv=0; G.lastBuzzT=0; G.soloT=rand(12,18);
   clearInvasion();
@@ -3047,7 +3085,10 @@ function toTitle(){
 function setPaused(v){
   if (G.mode!=='match' || G.phase==='end') return;
   G.paused=v; $('pause').hidden=!v; if (!v) $('help').hidden=true;
-  if (v){ IN.keys.clear(); Voice.stop(); $('resumeBtn').focus({preventScroll:true}); }
+  if (v){ IN.keys.clear(); Voice.stop(); $('resumeBtn').focus({preventScroll:true});
+    // a tap meant for the game shouldn't land on a menu button
+    const pz=$('pause'); pz.style.pointerEvents='none'; setTimeout(()=>{ pz.style.pointerEvents=''; },450); }
+  quitArm(false);
 }
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden && G.mode==='match' && !G.resultShown) setPaused(true); });
 
@@ -3169,17 +3210,29 @@ function render(rdt){
   }
   renderer.render(scene,camera);
 }
+// what the chat talks about when nothing special just happened
+function idleKind(){
+  const d=G.score[AWAY]-G.score[HOME], o=ball.owner;
+  if (o && o.team===HOME && Math.abs(o.z-oppGoalZ(HOME))<10) return 'idleChance';
+  if (o && o.team===AWAY && Math.abs(o.z-ownGoalZ(HOME))<9) return 'idleDanger';
+  if (G.dullT>10) return 'idleDull';
+  if (d>=2) return 'idleLosing';
+  if (d<=-2) return 'idleWinning';
+  return MATCH_TIME-G.clock<15 ? 'idleEarly' : 'idle';
+}
 function effectsFrame(rdt){
   if (G.mode!=='match') return;
   if (G.phase==='play'){
     if (G.fever>0){ G.fever-=rdt; G.buzz=Math.max(0,G.fever/12*100); if (G.fever<=0){ G.fever=0; G.buzz=0; G.mod=null; AudioSys.setFever(false); } }
-    if (G.fever<=0 && G.realT-G.lastBuzzT>3) G.buzz=Math.max(0,G.buzz-1.2*rdt);
-    G.idleT-=rdt; if (G.idleT<=0){ G.idleT=rand(2.2,4.8); say('idle'); }
+    if (G.fever<=0 && G.realT-G.lastBuzzT>5) G.buzz=Math.max(0,G.buzz-0.9*rdt);
+    G.idleT-=rdt; if (G.idleT<=0){ const k=idleKind(); G.idleT = k==='idleChance'||k==='idleDanger' ? rand(1.4,2.4) : rand(2.2,4.8); say(k); }
     G.soloT-=rdt; if (G.soloT<=0){ G.soloT=rand(14,22); if ((buzzLv()>=1 || G.viewers>300) && !G.inv && !G.invQ && Math.random()<0.6) queueInvasion(0.1,1,'solo'); }
     if (!G.said10 && G.clock<=10){ G.said10=true; say('last10',3); }
   }
-  G.hype*=Math.exp(-0.012*rdt);
-  G.viewers=87+G.hype+Math.sin(G.realT*0.7)*3;
+  // nothing happening: people drift away; something happening: hype holds
+  if (G.phase==='play'){ G.dullT+=rdt; if (G.dullT>10) G.base=Math.max(40,G.base-0.35*rdt); }
+  G.hype*=Math.exp(-(G.dullT>10?0.05:0.012)*rdt);
+  G.viewers=Math.max(5,G.base+G.hype+Math.sin(G.realT*0.7)*3);
   AudioSys.setCrowd(G.phase==='end' ? 0.01 : 0.012+Math.min(0.05,G.viewers/18000)+(G.fever>0?0.03:0)+(G.inv?0.025:0));
   G.peak=Math.max(G.peak,G.viewers);
   const c=Math.max(0,Math.ceil(G.clock));
@@ -3206,9 +3259,12 @@ function effectsFrame(rdt){
 function resize(){ if (G.intro) endIntro(); renderer.setSize(innerWidth,innerHeight,false); camera.aspect=innerWidth/Math.max(1,innerHeight); camera.updateProjectionMatrix(); if (!$('touch').hidden) stickHome(); }
 addEventListener('resize',resize);
 let last=performance.now(), acc=0;
+const perf={ ema:1/60, t:0, pr:renderer.getPixelRatio() };
 function frame(now){
   requestAnimationFrame(frame);
-  const rdt=Math.min(0.05,Math.max(0,(now-last)/1000)); last=now;
+  const raw=(now-last)/1000, rdt=Math.min(0.1,Math.max(0,raw)); last=now;
+  if (raw>0 && raw<0.5){ perf.ema+=(raw-perf.ema)*0.05;
+    if (G.mode==='match' && !G.paused && perf.ema>1/26 && perf.pr>1 && now-perf.t>2500){ perf.t=now; perf.pr=Math.max(1,perf.pr-0.5); renderer.setPixelRatio(perf.pr); renderer.setSize(innerWidth,innerHeight,false); } }
   if (!G.paused){
     G.realT+=rdt;
     if (G.intro) introFrame(rdt);
@@ -3220,8 +3276,8 @@ function frame(now){
     if (G.hitstop>0) G.hitstop-=rdt;
     else if (G.phase!=='replay' && !(G.cine && G.cine.phase!=='chase')){
       acc+=rdt*G.timeScale; let n=0;
-      while (acc>=STEP && n<12){ step(STEP); acc-=STEP; n++; }
-      if (n>=12) acc=0;
+      while (acc>=STEP && n<14){ step(STEP); acc-=STEP; n++; }
+      if (n>=14) acc=0;
     }
     effectsFrame(rdt);
   }
@@ -3245,7 +3301,9 @@ $('muteBtn').addEventListener('click',toggleSound);
 // any tap or key resumes audio that the OS suspended (app switch, call, lock screen)
 ['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if (AudioSys.started) AudioSys.resume(); },true));
 $('resumeBtn').addEventListener('click',()=>setPaused(false));
-$('quitBtn').addEventListener('click',toTitle);
+let quitT=0;
+function quitArm(on){ const b=$('quitBtn'); clearTimeout(quitT); b.classList.toggle('warn',on); b.textContent=on?'もう一度押すとタイトルへ（この試合の報酬なし）':'タイトルへ'; if (on) quitT=setTimeout(()=>quitArm(false),3500); }
+$('quitBtn').addEventListener('click',()=>{ if ($('quitBtn').classList.contains('warn')){ quitArm(false); toTitle(); } else quitArm(true); });
 $('soundBtn').addEventListener('click',toggleSound);
 $('soundBtnP').addEventListener('click',toggleSound);
 for (const [b,st] of [['voiceBtnP','voiceStatP'],['voiceBtnH','voiceStatH']]) $(b).addEventListener('click',()=>{
@@ -3294,7 +3352,7 @@ window.__buzzkick = {
     const out={ goals:sc, shots:G.shotCount.slice(), pass:Object.assign({},G.pst) }; G.pst={tries:0,ok:0,cut:0}; G.dbg={shots:0,gk:0,over:0,wide:0,block:0,post:0,spd:0,dist:0};
     G.mode=prevMode; applyParams(); resetKickoff(HOME); return out;
   },
-  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say }),
+  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say, renderer, scene, perf }),
   state:()=>({ mode:G.mode, phase:G.phase, clock:G.clock, score:G.score.slice(), likes:G.likes, human:G.human&&G.human.role }),
   start:startMatch,
   debugGoal(team=HOME){ const s=team===HOME?-1:1; ball.owner=null; ball.inGoal=false; Object.assign(ball,{x:0.4,y:0.5,z:s*(HL-3),vx:0,vy:1,vz:s*18}); ball.lastKick={by:teams[team].field[3],team,type:'shot',x:0,z:s*(HL-14),t:G.simTime,dist:14,flag:false}; teams[1-team].gk.x=-1.4; },
