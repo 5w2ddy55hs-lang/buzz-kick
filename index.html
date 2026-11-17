@@ -621,6 +621,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
       <ul class="tips">
         <li><b>BUZZ</b><span>神プレーで溜まる。Lvごとに足とシュートが強化。MAXでルーレットが回り、観客が乱入する</span></li>
         <li><b>コンボ</b><span>相手に取られる前にプレーをつなぐほど、いいねの倍率が上がる</span></li>
+        <li><b>サウンド</b><span>歓声は同接が増えるほど大きくなる。乱入した観客と警察はしゃべる（端末に日本語音声があれば読み上げ、なければ合成の掛け声）</span></li>
         <li><b>必殺</b><span>BUZZ MAXか10コンボで1回ぶん貯まる。軌道上の選手を全員吹き飛ばしてゴールに突き刺さる</span></li>
         <li><b>PERFECT</b><span>シュートゲージの金色ゾーンで離すと、速くて正確なシュートになる</span></li>
         <li><b>ガチャ</b><span>試合とレベルアップで券がもらえる。当たりは選手スキンやボール、軌跡などの見た目。ピックアップは30回で確定、入手後は30回ごとに未所持のURスキンが確定。さらに上の「超激レア」は0.3%、100回で確定</span></li>
@@ -823,6 +824,7 @@ function addXP(n){ SV.xp+=n; let ups=0; while (SV.xp>=needXP(SV.lv)){ SV.xp-=nee
    audio (all synthesized, starts on first button press)
    ========================================================= */
 const AudioSys = (() => {
+  let crowdBus=null, bedG=null, bedNext=0;
   let ctx=null, master, sfxG, musG, noiseBuf, an=null, unlockEl=null, on=true, timer=null, nextT=0, stepI=0, fever=false;
   // iPhone: Web Audio is muted by the silent switch unless the page's audio session is "playback".
   function silentWav(){ const n=800, buf=new Uint8Array(44+n), v=new DataView(buf.buffer), w=(o,t)=>{ for(let i=0;i<t.length;i++) buf[o+i]=t.charCodeAt(i); };
@@ -844,8 +846,37 @@ const AudioSys = (() => {
     try { an=ctx.createAnalyser(); an.fftSize=1024; comp.connect(an); } catch(e){ an=null; }
     sfxG = ctx.createGain(); sfxG.gain.value = 0.75; sfxG.connect(master);
     musG = ctx.createGain(); musG.gain.value = 0.32; musG.connect(master);
+    // crowd: voices + murmur go through a gentle lowpass and a short synthetic reverb
+    crowdBus = ctx.createGain(); crowdBus.gain.value = 2.4;
+    const clp = ctx.createBiquadFilter(); clp.type='lowpass'; clp.frequency.value=4200; crowdBus.connect(clp); clp.connect(sfxG);
+    try {
+      const len=Math.floor(ctx.sampleRate*1.6), ir=ctx.createBuffer(2,len,ctx.sampleRate);
+      for (let c=0;c<2;c++){ const d=ir.getChannelData(c); for (let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3); }
+      const conv=ctx.createConvolver(); conv.buffer=ir; const wet=ctx.createGain(); wet.gain.value=0.35; clp.connect(conv); conv.connect(wet); wet.connect(sfxG);
+    } catch(e){}
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  }
+  // formant "voice": a sawtooth through two vowel formants, with vibrato and a pitch glide
+  const FORM={ a:[800,1250], o:[520,900], u:[350,1100], e:[480,1850], i:[300,2250] };
+  function voice(t,f0,vowels,dur,peak,glide,dest){
+    const o=ctx.createOscillator(), vib=ctx.createOscillator(), vg=ctx.createGain(), f1=ctx.createBiquadFilter(), f2=ctx.createBiquadFilter(), g=ctx.createGain(), g2=ctx.createGain();
+    o.type='sawtooth'; o.frequency.setValueAtTime(f0,t); o.frequency.linearRampToValueAtTime(f0*glide,t+dur);
+    vib.frequency.value=4.5+Math.random()*2.5; vg.gain.value=f0*0.03; vib.connect(vg); vg.connect(o.frequency);
+    f1.type=f2.type='bandpass'; f1.Q.value=5; f2.Q.value=7;
+    const v0=FORM[vowels[0]]; f1.frequency.setValueAtTime(v0[0],t); f2.frequency.setValueAtTime(v0[1],t);
+    for (let i=1;i<vowels.length;i++){ const tt=t+dur*i/vowels.length, v=FORM[vowels[i]]; f1.frequency.linearRampToValueAtTime(v[0],tt); f2.frequency.linearRampToValueAtTime(v[1],tt); }
+    g2.gain.value=0.6; const a=Math.min(0.14,dur*0.25);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(peak,t+a); g.gain.setValueAtTime(peak,t+dur*0.6); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g2); g2.connect(g); g.connect(dest);
+    o.start(t); vib.start(t); o.stop(t+dur+0.05); vib.stop(t+dur+0.05);
+  }
+  function startBed(){
+    if (!ctx || bedG) return;
+    bedG=ctx.createGain(); bedG.gain.value=0.0001; bedG.connect(crowdBus);
+    [[650,0.45],[1500,0.6]].forEach(([f,q])=>{ const src=ctx.createBufferSource(); src.buffer=noiseBuf; src.loop=true; const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=q;
+      const am=ctx.createGain(); am.gain.value=0.7; const lfo=ctx.createOscillator(), lg=ctx.createGain(); lfo.frequency.value=0.18+Math.random()*0.2; lg.gain.value=0.3; lfo.connect(lg); lg.connect(am.gain); lfo.start();
+      src.connect(bp); bp.connect(am); am.connect(bedG); src.start(0,Math.random()); });
   }
   function resume(){ if (!ctx) return; if (ctx.state!=='running' && ctx.state!=='closed'){ unlockSession(); const pr=ctx.resume(); if (pr&&pr.catch) pr.catch(()=>{}); } }
   function env(g,t,a,d,peak){ g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(Math.max(peak,0.0002),t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+a+d); }
@@ -863,6 +894,24 @@ const AudioSys = (() => {
     pop(){ if(!ok())return; const t=ctx.currentTime; osc('sine',620,t,0.08,0.2,sfxG,990); },
     whistle(n=1,long=false){ if(!ok())return; let t=ctx.currentTime+0.02; for(let i=0;i<n;i++){ const dur = long&&i===n-1 ? 0.75 : 0.22; [2850,2895].forEach(f=>{ const o=osc('sine',f,t,dur,0.13,sfxG,null,0.02); const lfo=ctx.createOscillator(), lg=ctx.createGain(); lfo.frequency.value=32; lg.gain.value=90; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(t+dur+0.1); }); t+=dur+0.12; } },
     cheer(){ if(!ok())return; const t=ctx.currentTime; const s=ctx.createBufferSource(); s.buffer=noiseBuf; s.loop=true; const fl=ctx.createBiquadFilter(); fl.type='bandpass'; fl.frequency.value=900; fl.Q.value=0.5; const g=ctx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.25); g.gain.exponentialRampToValueAtTime(0.0001,t+2.6); s.connect(fl); fl.connect(g); g.connect(sfxG); s.start(t); s.stop(t+2.7); for(let i=0;i<22;i++) noise(t+0.1+Math.random()*1.6,0.03,0.12,sfxG,'bandpass',1500+Math.random()*1200,1.4); },
+    // crowd reactions made of many small formant voices
+    crowd(kind,k=1){ if(!ok()||!crowdBus) return; const t=ctx.currentTime, C=crowdBus;
+      const n=Math.round((kind==='roar'?22:kind==='laugh'?10:14)*Math.min(1.6,k));
+      for (let i=0;i<n;i++){
+        const male=Math.random()<0.5, f0=male?100+Math.random()*70:190+Math.random()*110, d=Math.random()*(kind==='oh'?0.15:0.3), pk=(0.018+Math.random()*0.02)*k;
+        if (kind==='roar') voice(t+d,f0,Math.random()<0.7?['a','a','a']:['a','a','o'],1.4+Math.random()*1.2,pk,1.05+Math.random()*0.15,C);
+        else if (kind==='oh') voice(t+d,f0,['o','o','u'],0.8+Math.random()*0.4,pk,0.88,C);
+        else if (kind==='ah') voice(t+d,f0*0.95,['a','a'],0.8+Math.random()*0.3,pk*0.8,0.72,C);
+        else if (kind==='laugh'){ const m=4+((Math.random()*3)|0); for (let j=0;j<m;j++) voice(t+d+j*(0.11+Math.random()*0.03),f0*1.25*(1-j*0.03),['a'],0.09,pk*1.2,1,C); }
+      }
+      if (kind==='roar') noise(t,1.8*k,0.1*k,C,'bandpass',1100,0.5,0.25);
+      if (kind==='roar' || kind==='laugh') for (let i=0;i<(kind==='roar'?18:8);i++) noise(t+0.1+Math.random()*1.4,0.03,0.08*k,C,'bandpass',1500+Math.random()*1200,1.4);
+    },
+    // fallback "voice" when the device has no Japanese speech voice
+    shout(role){ if(!ok()||!crowdBus) return; const t=ctx.currentTime;
+      if (role==='police'){ noise(t,0.05,0.3,crowdBus,'highpass',3000,0.7); voice(t+0.04,150,['o','o','a','a'],0.8,0.3,0.75,crowdBus); voice(t+0.05,225,['o','o','a','a'],0.75,0.08,0.75,crowdBus); }
+      else { const f=240+Math.random()*90; voice(t,f,['u','o','o','o'],0.9,0.12,1.3,crowdBus); voice(t+0.02,f*1.5,['u','o','o'],0.85,0.05,1.25,crowdBus); }
+    },
     groan(){ if(!ok())return; const t=ctx.currentTime; osc('sawtooth',220,t,0.9,0.05,sfxG,140,0.1); noise(t,0.8,0.12,sfxG,'lowpass',500,0.5,0.1); },
     fever(){ if(!ok())return; const t=ctx.currentTime; [0,4,7,12,16].forEach((n,i)=>osc('square',523.25*Math.pow(2,n/12),t+i*0.06,0.12,0.08,sfxG)); },
     siren(){ if(!ok())return; const t=ctx.currentTime; const o=ctx.createOscillator(), f=ctx.createBiquadFilter(), g=ctx.createGain(); o.type='sawtooth'; f.type='lowpass'; f.frequency.value=2000; o.frequency.setValueAtTime(620,t); for(let i=0;i<3;i++){ o.frequency.linearRampToValueAtTime(1050,t+i*0.9+0.45); o.frequency.linearRampToValueAtTime(620,t+i*0.9+0.9); } g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.06,t+0.2); g.gain.setValueAtTime(0.06,t+2.4); g.gain.exponentialRampToValueAtTime(0.0001,t+2.8); o.connect(f); f.connect(g); g.connect(sfxG); o.start(t); o.stop(t+2.9); },
@@ -898,12 +947,40 @@ const AudioSys = (() => {
   function tick(){ if(!ctx || ctx.state!=='running') return; if (nextT < ctx.currentTime) nextT=ctx.currentTime+0.05; while(nextT < ctx.currentTime+0.15){ schedule(stepI,nextT); nextT+=S16; stepI++; } }
   return {
     init, resume, S,
+    setCrowd(level){ if(!ctx) return; startBed(); const now=ctx.currentTime; if (now<bedNext) return; bedNext=now+0.25; bedG.gain.setTargetAtTime(Math.max(0.0001,level*0.45),now,0.8); },
     startMusic(){ if(!ctx||timer) return; nextT=ctx.currentTime+0.08; stepI=0; timer=setInterval(tick,30); },
     setFever(v){ fever=v; },
     setOn(v){ on=v; if(master) master.gain.setTargetAtTime(v?0.9:0, ctx.currentTime, 0.05); },
     get on(){ return on; },
     get started(){ return !!ctx; },
     debug(){ if (!an) return { state: ctx?ctx.state:'none', rms:0 }; const d=new Float32Array(an.fftSize); an.getFloatTimeDomainData(d); let r=0; for (const x of d) r+=x*x; return { state:ctx.state, rms:Math.sqrt(r/d.length) }; },
+  };
+})();
+
+const VOICE_LINES={
+  invade:['うおおお、乱入だー！','推しに会いに来たー！','一緒にサッカーしよー！','ハイタッチしてー！','サインくださーい！'],
+  riot:['全員で行くぞー！','祭りだ祭りだー！','わっしょーい！'],
+  solo:['ボールちょうだい！','ちょっとだけ混ぜてー！','乱入しまーす！'],
+  goal:['ナイスゴール！','最高ー！','おめでとー！'],
+  police:['そこの人、止まりなさい！','コラー、待ちなさい！','ピッチから出なさい！'],
+  caught:['はい、確保！','捕まえたぞ！','おとなしくしなさい！'],
+  bye:['えー、もう終わりー？','また来るねー！','楽しかったー！'],
+};
+const Voice=(()=>{
+  const can=('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
+  let ja=null, last=0;
+  const pickV=()=>{ try { const vs=speechSynthesis.getVoices(); ja=vs.find(v=>/^ja/i.test(v.lang))||null; } catch(e){ ja=null; } };
+  if (can){ pickV(); try { speechSynthesis.addEventListener('voiceschanged',pickV); } catch(e){} }
+  const ROLE={ fan:{ pitch:1.6, rate:1.2 }, police:{ pitch:0.65, rate:1.05 } };
+  return {
+    say(kind,role,force){
+      if (!AudioSys.on || G.mode!=='match' || G.paused) return;
+      const now=performance.now(); if (!force && now-last<1200) return; last=now;
+      const text=pick(VOICE_LINES[kind]||VOICE_LINES.invade);
+      if (can && ja){ try { const u=new SpeechSynthesisUtterance(text), r=ROLE[role]||ROLE.fan; u.voice=ja; u.lang=ja.lang; u.pitch=r.pitch; u.rate=r.rate; u.volume=1; speechSynthesis.speak(u); return; } catch(e){} }
+      AudioSys.S.shout(role);
+    },
+    stop(){ if (can) try { speechSynthesis.cancel(); } catch(e){} },
   };
 })();
 
@@ -1338,7 +1415,11 @@ function startInvasion(n,kind){
     f.facing = c.x>0 ? -Math.PI/2 : Math.PI/2; f.g.visible=true;
   }
   banner(K.banner[0],K.banner[1],{small:true,dur:1700});
-  say(K.say[0],K.say[1]); if (kind!=='solo') AudioSys.S.cheer(); else AudioSys.S.pop();
+  say(K.say[0],K.say[1]);
+  const loud=kind==='big'||kind==='riot';
+  AudioSys.S.crowd(kind==='solo'?'laugh':'roar', loud?1.3:0.8); if (kind!=='solo') AudioSys.S.crowd('laugh',0.6);
+  setTimeout(()=>Voice.say(kind==='goal'?'goal':kind==='riot'?'riot':kind==='solo'?'solo':'invade','fan',true),350);
+  if (loud) setTimeout(()=>Voice.say('invade','fan',true),1900);
   addLikes(K.likes); G.hype+=K.hype; if (kind==='big') G.shake=Math.max(G.shake,0.3);
 }
 function spawnPolice(){
@@ -1347,7 +1428,7 @@ function spawnPolice(){
   let need=Math.max(0, inv.cops-cops.filter(c=>c.active).length), spawned=0;
   for (let i=0;i<cops.length && need>0;i++){ const c=cops[i]; if (c.active) continue; need--; spawned++; const sx=(i+spawned)%2?1:-1; Object.assign(c,{ x:sx*(HW+2.2), z:rand(-2,8), vx:0, vz:0, y:0, active:true, state:'chase', tgt:null, inside:false, ex:sx*(HW+2.4) }); c.facing=-sx*Math.PI/2; c.g.visible=true; }
   inv.police=true;
-  if (spawned){ banner('警察出動',null,{small:true,dur:1200}); say('police',inv.n>=4?5:3); AudioSys.S.siren(); }
+  if (spawned){ banner('警察出動',null,{small:true,dur:1200}); say('police',inv.n>=4?5:3); AudioSys.S.siren(); setTimeout(()=>Voice.say('police','police',true),500); }
 }
 function clearInvasion(){
   for (const e of extras){ e.active=false; e.state='off'; e.g.visible=false; e.partner=null; e.tgt=null; e.v[0]=0; }
@@ -1394,6 +1475,7 @@ function extrasStep(dt){
       if (hyp(f.x-c.x,f.z-c.z)<0.7){
         f.state='caught'; f.partner=c; c.state='escort'; c.ex=Math.sign(c.x||1)*(HW+2.6); c.tgt=null;
         G.stats.caught++; AudioSys.S.whistle(2); say('caught',2); toast('確保!'); addLikes(200);
+        Voice.say('caught','police'); AudioSys.S.crowd('laugh',0.5); if (Math.random()<0.4) setTimeout(()=>Voice.say('bye','fan'),1300);
       }
     } else if (c.state==='escort'){
       moveExtra(c,c.ex,c.z,3.6,dt,false);
@@ -1430,7 +1512,7 @@ function extrasStep(dt){
         p.x+=ux*push*wp; p.z+=uz*push*wp; if (!held){ e.x-=ux*push*(1-wp); e.z-=uz*push*(1-wp); } }
     }
   }
-  if (inv.t>inv.end || (inv.police && !extras.some(e=>e.active))){ const calm=inv.t<=inv.end; clearInvasion(); if (calm){ say('invEnd',3); toast('ピッチに平和が戻った'); } }
+  if (inv.t>inv.end || (inv.police && !extras.some(e=>e.active))){ const calm=inv.t<=inv.end; clearInvasion(); if (calm){ say('invEnd',3); toast('ピッチに平和が戻った'); AudioSys.S.crowd('laugh',0.8); } }
 }
 function extraVis(e){ const v=e.v; v[0]=e.active?1:0; v[1]=e.x; v[2]=e.z; v[3]=e.facing; v[4]=e.ph; v[5]=clamp(hyp(e.vx,e.vz)/6.5,0,1.15); v[6]=e.y; v[7]=e.armsUp; }
 function poseExtra(e,v){
@@ -1495,7 +1577,7 @@ function comboFrame(rdt){
 function perfectZone(){ const w=0.08+0.015*buzzLv(); return [0.86-w, Math.min(0.97,0.86+w)]; }
 function perfectFx(p){
   G.hitstop=0.1; G.shake=Math.max(G.shake,0.35); flash('gold'); vib(30);
-  popAt(p,'PERFECT!!','perfect'); AudioSys.S.perfect();
+  popAt(p,'PERFECT!!','perfect'); AudioSys.S.perfect(); AudioSys.S.crowd('oh',0.6);
   G.stats.perfects++; comboAdd(1); addLikes(250); say('perfect',2);
 }
 
@@ -1861,7 +1943,7 @@ function launchSpecial(){
   Object.assign(ball,{ owner:null, y:sy, vx:dx/dl*sp, vy:dy/dl*sp, vz:dz/dl*sp, special:true, perfect:false, intended:null, shotT:0, lastTouch:p });
   ball.lastKick={ by:p, team:p.team, type:'shot', x:sx, z:sz, t:G.simTime, dist:hyp(sx-C.cx,sz+HL), flag:true };
   p.kickT=0.25; p.noTouch=1; G.stats.shots++;
-  AudioSys.S.spLaunch(); flash('gold'); G.shake=0.8; vib([40,30,60]); cam.snap=true;
+  AudioSys.S.spLaunch(); AudioSys.S.crowd('roar',1.1); flash('gold'); G.shake=0.8; vib([40,30,60]); cam.snap=true;
 }
 function blastPlayer(q){
   const bl=hyp(ball.vx,ball.vz)||1, ux=ball.vx/bl, uz=ball.vz/bl, px=-uz, pz=ux;
@@ -2235,7 +2317,7 @@ function tryFeint(p,ix,iz){
   for (const q of teams[1-p.team].field){ if (hyp(q.x-p.x,q.z-p.z)<3.2) q.stun=Math.max(q.stun,0.75+(p.team===HOME?boost().stun:0)); }
   AudioSys.S.feint();
   if (G.mode==='match'){
-    if (p.team===HOME){ G.stats.feints++; comboAdd(2); addLikes(300,p,'フェイント'); addBuzz(12); say('feint',2); G.slowT=0.3; vib(15); }
+    if (p.team===HOME){ G.stats.feints++; comboAdd(2); addLikes(300,p,'フェイント'); addBuzz(12); say('feint',2); AudioSys.S.crowd('oh',0.45); G.slowT=0.3; vib(15); }
     else if (Math.random()<0.6) say('oppFeint');
   }
   return true;
@@ -2376,7 +2458,7 @@ function collideSeg(ax,ay,az,bx,by,bz){
     const vn=b.vx*nx+b.vy*ny+b.vz*nz; if (vn<0){ b.vx-=1.65*vn*nx; b.vy-=1.65*vn*ny; b.vz-=1.65*vn*nz; if (-vn>4) hitPost(-vn); } }
 }
 function hitPost(v){ G.dbg.post++;
-  AudioSys.S.post(); G.shake=Math.max(G.shake,0.25);
+  AudioSys.S.post(); AudioSys.S.crowd('oh',0.9); G.shake=Math.max(G.shake,0.25);
   const lk=ball.lastKick;
   if (G.mode==='match' && lk && lk.type==='shot' && !lk.flag){ lk.flag=true; say('post',3); if (lk.team===HOME){ comboAdd(1); addLikes(200); addBuzz(6); toast('ポスト!!'); } }
 }
@@ -2448,7 +2530,7 @@ function gkSaves(){
         ball.vz=-s*Math.abs(ball.vz)*rand(0.25,0.45); ball.vx=ball.vx*0.3+rand(-5,5); ball.vy=rand(2,5);
         g.noTouch=0.35; ball.lastTouch=g; ball.shotT=0; AudioSys.S.tap();
         const lk=ball.lastKick;
-        if (G.mode==='match' && lk && lk.type==='shot' && !lk.flag){ lk.flag=true; if (lk.team===HOME){ say('oppSave',2); comboAdd(1); addLikes(120); addBuzz(5); toast('おしい!'); } else say('save'); }
+        if (G.mode==='match' && lk && lk.type==='shot' && !lk.flag){ lk.flag=true; if (lk.team===HOME){ say('oppSave',2); AudioSys.S.crowd('oh',0.8); comboAdd(1); addLikes(120); addBuzz(5); toast('おしい!'); } else say('save'); }
       }
     }
   }
@@ -2488,7 +2570,7 @@ function scored(s){
   const lk=ball.lastKick, own=!(lk && lk.team===team);
   const dist = own ? 0 : (lk.dist || hyp(lk.x, lk.z-oppGoalZ(team)));
   if (team===HOME){
-    AudioSys.S.cheer();
+    AudioSys.S.cheer(); AudioSys.S.crowd('roar',1.5);
     G.stats.goals++; if (!own) G.stats.longest=Math.max(G.stats.longest,dist);
     const long=dist>=12, fev=G.fever>0;
     G.streak=(G.streak||0)+1; flash('white'); vib([30,40,60]);
@@ -2510,7 +2592,7 @@ function scored(s){
     superChat(long||fev ? 'red' : Math.random()<0.4 ? 'blue' : 'gold');
     const glv=buzzLv(); if (glv>=2) queueInvasion(0.35, glv>=3?3:2, 'goal');
   } else {
-    AudioSys.S.groan();
+    AudioSys.S.groan(); AudioSys.S.crowd('ah',1);
     G.streak=0; comboEnd(false);
     G.buzz=Math.max(0,G.buzz-18);
     banner('失点…', pick(['切り替えていこう','まだ時間ある','取り返そ']), {sad:true});
@@ -2529,7 +2611,7 @@ function addLikes(n,at,label){
 function addBuzz(n){
   if (G.mode!=='match' || G.fever>0) return;
   G.buzz+=n; G.lastBuzzT=G.realT;
-  if (G.buzz>=100){ G.buzz=100; G.fever=12; queueInvasion(1.2, clamp(5+Math.floor(G.viewers/350),5,NX_FAN), 'big'); banner('バズり中!!','いいね3倍 ＋ BUZZルーレット',{small:true}); spinRoulette(); giveSP(); say('fever',5); AudioSys.S.fever(); AudioSys.setFever(true); }
+  if (G.buzz>=100){ G.buzz=100; G.fever=12; queueInvasion(1.2, clamp(5+Math.floor(G.viewers/350),5,NX_FAN), 'big'); banner('バズり中!!','いいね3倍 ＋ BUZZルーレット',{small:true}); spinRoulette(); giveSP(); AudioSys.S.crowd('roar',1); say('fever',5); AudioSys.S.fever(); AudioSys.setFever(true); }
 }
 
 /* =========================================================
@@ -2802,7 +2884,7 @@ function endMatch(){
   G.clock=0; G.phase='end'; G.phaseT=0; G.charging=false; comboEnd(true); endCine();
   AudioSys.S.whistle(3,true);
   const [h,a]=G.score;
-  if (h>a){ addLikes(3000); AudioSys.S.cheer(); }
+  if (h>a){ addLikes(3000); AudioSys.S.cheer(); AudioSys.S.crowd('roar',1.2); } else if (h<a) AudioSys.S.crowd('ah',0.8);
   banner('TIME UP', h>a?'勝った!':h<a?'負けた…':'引き分け', {dur:1800});
   if (G.fever>0){ G.fever=0; AudioSys.setFever(false); }
 }
@@ -2868,7 +2950,7 @@ function startMatch(key){
   startIntro();
 }
 function toTitle(){
-  G.mode='attract'; G.paused=false; G.human=null; clearInvasion(); endCine(); G.intro=null; $('stream').hidden=true; applyParams();
+  G.mode='attract'; G.paused=false; G.human=null; Voice.stop(); AudioSys.setCrowd(0.008); clearInvasion(); endCine(); G.intro=null; $('stream').hidden=true; applyParams();
   ['result','pause','replay','help'].forEach(id=>$(id).hidden=true);
   $('hud').hidden=true; $('touch').hidden=true; $('banner').hidden=true; $('title').hidden=false;
   AudioSys.setFever(false); G.fever=0;
@@ -2878,7 +2960,7 @@ function toTitle(){
 function setPaused(v){
   if (G.mode!=='match' || G.phase==='end') return;
   G.paused=v; $('pause').hidden=!v; if (!v) $('help').hidden=true;
-  if (v){ IN.keys.clear(); $('resumeBtn').focus({preventScroll:true}); }
+  if (v){ IN.keys.clear(); Voice.stop(); $('resumeBtn').focus({preventScroll:true}); }
 }
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden && G.mode==='match' && !G.resultShown) setPaused(true); });
 
@@ -3010,6 +3092,7 @@ function effectsFrame(rdt){
   }
   G.hype*=Math.exp(-0.012*rdt);
   G.viewers=87+G.hype+Math.sin(G.realT*0.7)*3;
+  AudioSys.setCrowd(G.phase==='end' ? 0.01 : 0.012+Math.min(0.05,G.viewers/18000)+(G.fever>0?0.03:0)+(G.inv?0.025:0));
   G.peak=Math.max(G.peak,G.viewers);
   const c=Math.max(0,Math.ceil(G.clock));
   setText('clock',`${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`);
@@ -3069,7 +3152,7 @@ $('againBtn').addEventListener('click',()=>startMatch(G.diff.key));
 $('toTitleBtn').addEventListener('click',toTitle);
 $('pauseBtn').addEventListener('click',()=>setPaused(true));
 function syncSoundUI(){ const v=AudioSys.on; $('soundBtn').textContent=$('soundBtnP').textContent='サウンド: '+(v?'ON':'OFF'); const m=$('muteBtn'); m.classList.toggle('off',!v); m.setAttribute('aria-label',v?'音を消す':'音を出す'); m.setAttribute('aria-pressed',String(!v)); }
-function toggleSound(){ AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); AudioSys.setOn(!AudioSys.on); syncSoundUI(); store('buzzkick.sound',AudioSys.on?'1':'0'); }
+function toggleSound(){ AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); AudioSys.setOn(!AudioSys.on); if (!AudioSys.on) Voice.stop(); syncSoundUI(); store('buzzkick.sound',AudioSys.on?'1':'0'); }
 $('muteBtn').addEventListener('click',toggleSound);
 // any tap or key resumes audio that the OS suspended (app switch, call, lock screen)
 ['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if (AudioSys.started) AudioSys.resume(); },true));
@@ -3125,6 +3208,8 @@ window.__buzzkick = {
   setClock(n){ G.clock=n; },
   phase:()=>G.phase,
   audio:()=>AudioSys.debug(),
+  crowd(k){ AudioSys.S.crowd(k,1.3); },
+  shout(r){ AudioSys.S.shout(r); },
   buzz(n){ addBuzz(n); },
   combo:()=>({combo:G.combo,max:G.comboMax,mod:G.mod,fever:G.fever,likes:G.likes}),
   perfectShot(){ const h=G.human; if (h && ball.owner===h){ humanShoot(h,0.86,true); return true; } return false; },
