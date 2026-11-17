@@ -716,7 +716,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
   <div class="overlay modal" id="gacha" hidden role="dialog" aria-label="BUZZガチャ">
     <div class="card gcard">
       <div class="ghead"><h2>BUZZガチャ</h2><span class="tix">ガチャ券 <b id="gTix">0</b>枚</span></div>
-      <div class="gpick" id="gPick"><span class="rar r-ur">UR</span><div class="gpk"><small>PICK UP</small><b>プロ選手スキン</b><span>チームの選手が3Dモデルに変身</span></div><em id="gPickState">30回で確定</em></div>
+      <div class="gpick" id="gPick"><span class="rar r-ur">UR</span><div class="gpk"><small>PICK UP</small><b>待ち合わせスキン</b><span>チームの選手が実写スキャンの選手に変身</span></div><em id="gPickState">30回で確定</em></div>
       <div class="gstage" id="gStage">
         <div class="rays"></div>
         <div class="capsule" id="gCap"><i></i></div>
@@ -845,9 +845,16 @@ const vib = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch(e)
 const RORDER=['N','R','SR','SSR','UR','LR'], RW={N:50,R:30,SR:14,SSR:5,UR:1}, PITY=30, LR_RATE=0.003, LR_PITY=100;
 const RLABEL={LR:'超激レア'};
 const CAT_LABEL={skin:'選手スキン',ball:'ボール',trail:'シュートの軌跡',goal:'ゴール演出',title:'称号'};
-const PICKUP='s_pro';
+const PICKUP='s_ur_sophia';
 const ITEMS=[
-  {id:'s_def',cat:'skin',r:'N',name:'いつものユニフォーム',def:true},{id:'s_pro',cat:'skin',r:'UR',name:'プロ選手スキン'},{id:'s_lr',cat:'skin',r:'LR',name:'チルい私服スキン'},
+  {id:'s_def',cat:'skin',r:'N',name:'いつものユニフォーム',def:true},
+  {id:'s_kit_white',cat:'skin',r:'N',name:'いつものユニフォーム（白）'},{id:'s_kit_sky',cat:'skin',r:'N',name:'いつものユニフォーム（空色）'},
+  {id:'s_kit_black',cat:'skin',r:'R',name:'いつものユニフォーム（黒）'},{id:'s_kit_orange',cat:'skin',r:'R',name:'いつものユニフォーム（オレンジ）'},
+  {id:'s_kit_gold',cat:'skin',r:'SR',name:'いつものユニフォーム（ゴールド）'},
+  {id:'s_pro',cat:'skin',r:'SSR',name:'プロ選手スキン'},{id:'s_pro_sky',cat:'skin',r:'SR',name:'プロ選手スキン（空色）'},
+  {id:'s_pro_black',cat:'skin',r:'SR',name:'プロ選手スキン（黒）'},{id:'s_pro_mint',cat:'skin',r:'SR',name:'プロ選手スキン（ミント）'},
+  {id:'s_pro_gold',cat:'skin',r:'SSR',name:'プロ選手スキン（ゴールド）'},
+  {id:'s_lr',cat:'skin',r:'LR',name:'チルい私服スキン'},
   {id:'s_ur_sophia',cat:'skin',r:'UR',name:'待ち合わせスキン'},{id:'s_ur_nathan',cat:'skin',r:'UR',name:'散歩スキン'},{id:'s_ur_manuel',cat:'skin',r:'UR',name:'踊ってみたスキン'},
   {id:'b_def',cat:'ball',r:'N',name:'いつものボール',def:true},{id:'b_mint',cat:'ball',r:'N',name:'ミントボール'},{id:'b_pink',cat:'ball',r:'N',name:'ピンクボール'},
   {id:'b_check',cat:'ball',r:'R',name:'チェッカーボール'},{id:'b_dots',cat:'ball',r:'R',name:'ドットボール'},{id:'b_gold',cat:'ball',r:'SR',name:'金のボール'},
@@ -1275,6 +1282,15 @@ const KITS = [
   { shirt:MINT, shorts:0x1d1a4d, gk:LEMON, gkShorts:0x1d1a4d, shoe:PINK },
   { shirt:PINK, shorts:PAPER, gk:0x9b7bff, gkShorts:0x2a1f5c, shoe:LEMON },
 ];
+// colour variants of the default (chibi) uniform for the home field players
+const SKIN_KITS = {
+  s_def:       { shirt:MINT,     shorts:0x1d1a4d, shoe:PINK },
+  s_kit_white: { shirt:0xf7f5ff, shorts:0x3ff5d0, shoe:0x1d1a4d },
+  s_kit_sky:   { shirt:0x7fd6ff, shorts:0xf7f5ff, shoe:0x1d1a4d },
+  s_kit_black: { shirt:0x262338, shorts:0x15131f, shoe:MINT },
+  s_kit_orange:{ shirt:0xff8a3d, shorts:0x1d1a4d, shoe:0xf7f5ff },
+  s_kit_gold:  { shirt:0xd9a21b, shorts:0x15131f, shoe:0xd9a21b, glow:0x4a3000 },
+};
 const SKIN=[0xffdcc5,0xf3c4a2,0xdba27c,0xb07a55,0xffe4d2];
 const HAIR=[0x1b1530,0x3a2418,0xf4d35e,0xff7ab8,0x7fd6ff,0xe6e4f2,0x2b2b2b,0x6b3fa0];
 const GEO = {
@@ -1304,7 +1320,7 @@ function makePlayer(team, role, id){
   add(GEO.eye,EYE,-0.095,1.53,0.245,body,false,false); add(GEO.eye,EYE,0.095,1.53,0.245,body,false,false);
   scene.add(g);
   const disc=new THREE.Mesh(GEO.disc,DISC_MAT[team]); disc.rotation.x=-Math.PI/2; disc.position.y=0.025; scene.add(disc);
-  return { id, team, role, isGK, g, body, skinObj:null, legs, arms, disc,
+  return { id, team, role, isGK, g, body, skinObj:null, legs, arms, disc, mats:{ j:mJ, s:mS, shoe:mShoe },
     x:0,z:0,vx:0,vz:0,facing:0, wantX:0,wantZ:0,wantSpeed:0, lookX:0,lookZ:0, sprint:false,
     speedRun:6, speedSprint:8, stealRate:1, shotErr:1, feintP:0.05, gkReact:0.22, gkDive:4.8, gkErr:0.3,
     noTouch:0, stun:0, immune:0, holdTime:0, decT:0, aiDX:0, aiDZ:-1, role2:'form', markT:null, receivedAt:-9, recvByPass:false,
@@ -1830,7 +1846,11 @@ function pullGacha(){
 // player skins: static 3D models auto-rigged onto the X Bot skeleton (kick clip + procedural run)
 // all models ship as base64 GLB inside JSON so any static host serves them
 const SKIN_DEFS={
-  s_pro:{ url:'assets/skin-pro.json', h:1.86, halo:0xffd23f },
+  s_pro:{ url:'assets/skin-pro.json', h:1.86, halo:0xffd23f, arms:true },
+  s_pro_sky:  { base:'s_pro', halo:0x7fd6ff, tint:{ 'Micah | top':0x6ec6ff, 'Micah | bottom':0xf2f2f2 } },
+  s_pro_black:{ base:'s_pro', halo:0xb9b0e4, tint:{ 'Micah | top':0x24222e, 'Micah | bottom':0x24222e } },
+  s_pro_mint: { base:'s_pro', halo:0x3ff5d0, tint:{ 'Micah | top':0x3ff5d0, 'Micah | bottom':0x1d1a4d } },
+  s_pro_gold: { base:'s_pro', halo:0xffd23f, tint:{ 'Micah | top':0xf1c232, 'Micah | bottom':0x15131f } },
   s_lr: { url:'assets/skin-lr.json',  h:1.8,  halo:0xff4fa3, rainbow:true },   // third-party scan: shipped with the private build only
   // rigged + animated third-party models (private build only): they use their own clip
   s_ur_sophia:{ url:'assets/skin-rp-sophia.json', h:1.78, halo:0x3ff5d0, own:'idle',  t0:0.5 },
@@ -1853,6 +1873,7 @@ function fetchGLB(url,onLoad,onFail){
 let motion=null, motionState='idle';
 const motionWaiters=[];
 const RIG_BONES=['Hips','Spine','Spine1','Spine2','Neck','Head','LeftUpLeg','LeftLeg','LeftFoot','LeftToeBase','RightUpLeg','RightLeg','RightFoot','RightToeBase'];
+const ARM_BONES=['LeftArm','LeftForeArm','RightArm','RightForeArm'];
 const RIG_TIP={ Hips:'Spine', Spine:'Spine1', Spine1:'Spine2', Spine2:'Neck', Neck:'Head', Head:'HeadTop_End',
   LeftUpLeg:'LeftLeg', LeftLeg:'LeftFoot', LeftFoot:'LeftToeBase', LeftToeBase:'LeftToe_End', RightUpLeg:'RightLeg', RightLeg:'RightFoot', RightFoot:'RightToeBase', RightToeBase:'RightToe_End' };
 const RIG_PARENT={ Spine:'Hips', Spine1:'Spine', Spine2:'Spine1', Neck:'Spine2', Head:'Neck', LeftUpLeg:'Hips', LeftLeg:'LeftUpLeg', LeftFoot:'LeftLeg', LeftToeBase:'LeftFoot', RightUpLeg:'Hips', RightLeg:'RightUpLeg', RightFoot:'RightLeg', RightToeBase:'RightFoot' };
@@ -1871,7 +1892,14 @@ function loadMotion(cb){
     done({ root:gltf.scene, clip });
   }, ()=>done(null));
 }
-function toonOf(m,skinning){ return new THREE.MeshToonMaterial({ color:m.color, map:m.map, gradientMap:toonGrad, alphaTest:m.alphaTest||0, side:THREE.DoubleSide, skinning:!!skinning }); }
+function toonOf(m,skinning){ const t=new THREE.MeshToonMaterial({ color:m.color, map:m.map, gradientMap:toonGrad, alphaTest:m.alphaTest||0, side:THREE.DoubleSide, skinning:!!skinning }); t.name=m.name; return t; }
+// recolour named materials (the kit pieces are flat colour textures, so a plain colour replaces them)
+function tintMat(m,tint){ const c=tint[m.name]; if (c===undefined) return m; const n=m.clone(); n.map=null; n.color.setHex(c); n.name=m.name; return n; }
+function tintProto(pr,tint){
+  if (pr.rig) return Object.assign({}, pr, { parts:pr.parts.map(q=>({ g:q.g, mat:tintMat(q.mat,tint) })) });
+  if (pr.root){ const root=pr.root.clone(true); root.traverse(o=>{ if (o.isMesh) o.material=tintMat(o.material,tint); }); return { root }; }
+  return pr;
+}
 function buildRigProto(def, skinScene, mo){
   const holder=new THREE.Group(), rig=mo.root.clone(true); holder.add(rig);
   const B=n=>rig.getObjectByName('mixamorig'+n), P=n=>B(n).getWorldPosition(new THREE.Vector3());
@@ -1889,19 +1917,84 @@ function buildRigProto(def, skinScene, mo){
   cx/=Math.max(1,cn); cz/=Math.max(1,cn);
   const hp=P('Hips'), top=P('HeadTop_End').y, s=top/(box.max.y-box.min.y);
   const fit=new THREE.Matrix4().makeTranslation(hp.x,0,hp.z).multiply(new THREE.Matrix4().makeScale(s,s,s)).multiply(new THREE.Matrix4().makeTranslation(-cx,-box.min.y,-cz));
+  for (const p of parts) p.g.applyMatrix4(fit);
   // weights: nearest bone segment (+ its neighbour for a soft joint); legs only below the hip line and close to their own leg
   const segs=RIG_BONES.map(n=>({ n, a:P(n), b:P(RIG_TIP[n]), leg:/Leg|Foot|Toe/.test(n), side:n.startsWith('Left')?'Left':n.startsWith('Right')?'Right':'' }));
   const idx=Object.fromEntries(RIG_BONES.map((n,i)=>[n,i]));
   const nbr=RIG_BONES.map(n=>RIG_BONES.filter(m=>RIG_PARENT[m]===n || RIG_PARENT[n]===m).map(m=>idx[m]));
   const hipLine=Math.max(P('LeftUpLeg').y,P('RightUpLeg').y)+0.02, legX={ Left:P('LeftUpLeg').x, Right:P('RightUpLeg').x }, midX=hp.x;
   const legSide=x=>x-midX>0.015 ? (legX.Left>midX?'Left':'Right') : x-midX<-0.015 ? (legX.Left>midX?'Right':'Left') : '';
+  // arms: the clip's skeleton is in a T-pose, the model's arms hang down. Find each hanging arm in the mesh,
+  // bend the rig's arm onto it and skin those vertices to the arm bones (so they can swing while running).
+  const armL={}, eachV=f=>{ for (const p of parts){ const a=p.g.attributes.position; for (let i=0;i<a.count;i++) f(a.getX(i),a.getY(i),a.getZ(i)); } };
+  if (def.arms) for (const side of ['Left','Right']){
+    const sg=(side==='Left')===(legX.Left>midX)?1:-1, H=top, lat=x=>sg*(x-midX);
+    const ua=P(side+'UpLeg'), la=P(side+'Leg'), legAxisX=y=>ua.x+(la.x-ua.x)*clamp((ua.y-y)/Math.max(1e-3,ua.y-la.y),0,1);
+    const offLeg=(x,y)=>Math.abs(x-legAxisX(y))>0.05*H;
+    // elbow: the free-hanging arm at ~0.63 of the height; hand: below it, clear of the thigh
+    let ex=0, ey=0, ez=0, en=0; eachV((x,y,z)=>{ if (y>0.6*H && y<0.66*H && lat(x)>0.1*H){ ex+=x; ey+=y; ez+=z; en++; } });
+    if (en<8) continue;   // arms not hanging free: leave them on the torso
+    const elbow=new THREE.Vector3(ex/en, ey/en, ez/en);
+    let hx=0, hz=0, hn=0, lowY=1e9; eachV((x,y,z)=>{ if (y>0.4*H && y<0.57*H && lat(x)>0.1*H && offLeg(x,y)){ hx+=x; hz+=z; hn++; lowY=Math.min(lowY,y); } });
+    if (hn<8) continue;
+    const hand=new THREE.Vector3(hx/hn, lowY+0.03*H, hz/hn), sh=new THREE.Vector3(midX+sg*0.105*H, 0.82*H, (elbow.z+hp.z)/2);
+    const up=B(side+'Arm'), fo=B(side+'ForeArm'), hd=B(side+'Hand');
+    const place=(bone,w)=>{ holder.updateMatrixWorld(true); bone.position.copy(bone.parent.worldToLocal(w.clone())); holder.updateMatrixWorld(true); };
+    const aim=(bone,child,dir)=>{ const bw=bone.getWorldPosition(new THREE.Vector3()), cw=child.getWorldPosition(new THREE.Vector3()).sub(bw).normalize();
+      const qd=new THREE.Quaternion().setFromUnitVectors(cw,dir), qw=bone.getWorldQuaternion(new THREE.Quaternion()), qp=bone.parent.getWorldQuaternion(new THREE.Quaternion());
+      bone.quaternion.copy(qp.invert().multiply(qd.multiply(qw))); holder.updateMatrixWorld(true); };
+    place(up,sh); aim(up,fo,elbow.clone().sub(sh).normalize()); place(fo,elbow); aim(fo,hd,hand.clone().sub(elbow).normalize());
+    armL[side]={ sg, lat, offLeg, elbow, hand, segs:[[sh,elbow],[elbow,hand]], r:[0.055*H,0.05*H], ui:RIG_BONES.length+(side==='Left'?0:2) };
+  }
+  if (Object.keys(armL).length!==2) for (const k in armL) delete armL[k];   // both arms or neither
+  const segT=(a,b,x,y,z)=>{ const ux=b.x-a.x, uy=b.y-a.y, uz=b.z-a.z, L2=ux*ux+uy*uy+uz*uz, t=((x-a.x)*ux+(y-a.y)*uy+(z-a.z)*uz)/L2, tc=clamp(t,0,1);
+    return { t, d:Math.hypot(x-(a.x+ux*tc), y-(a.y+uy*tc), z-(a.z+uz*tc)) }; };
+  const armOf=(x,y,z)=>{
+    for (const side in armL){ const A=armL[side];
+      if (A.lat(x)<0.1*top) continue;                                   // torso
+      if (y<hipLine && !A.offLeg(x,y)) continue;                         // thigh
+      const u=segT(A.segs[0][0],A.segs[0][1],x,y,z), f=segT(A.segs[1][0],A.segs[1][1],x,y,z);
+      if (u.t<-0.08 || f.t>1.25) continue;
+      if (u.d<=A.r[0] && (u.d<=f.d || u.t<0.85)) return { A, part:0, t:u.t };
+      if (f.d<=A.r[1]) return { A, part:1, t:f.t }; }
+    return null; };
   const ab=new THREE.Vector3(), ap=new THREE.Vector3(), q=new THREE.Vector3();
   const dist=(sg,x,y,z)=>{ ab.subVectors(sg.b,sg.a); ap.set(x-sg.a.x,y-sg.a.y,z-sg.a.z); const t=clamp(ap.dot(ab)/Math.max(1e-6,ab.lengthSq()),0,1); q.copy(sg.a).addScaledVector(ab,t); return Math.hypot(x-q.x,y-q.y,z-q.z); };
+  // fingers next to the thigh: grow the hand along the mesh (below the elbow, near the hand) so they follow the arm
+  const growHands=(g,info)=>{
+    const a=g.attributes.position, n=a.count, key=i=>Math.round(a.getX(i)*500)+','+Math.round(a.getY(i)*500)+','+Math.round(a.getZ(i)*500);
+    const same=new Map(); for (let i=0;i<n;i++){ const k=key(i); if (!same.has(k)) same.set(k,[]); same.get(k).push(i); }
+    const adj=Array.from({length:n},()=>[]), ix=g.index ? g.index.array : null, tri=ix ? ix.length : n;
+    for (let k=0;k+2<tri;k+=3){ const v=[ix?ix[k]:k, ix?ix[k+1]:k+1, ix?ix[k+2]:k+2]; for (let e=0;e<3;e++){ adj[v[e]].push(v[(e+1)%3]); adj[v[(e+1)%3]].push(v[e]); } }
+    const q=[]; for (let i=0;i<n;i++) if (info[i] && info[i].part===1) q.push(i);
+    while (q.length){ const i=q.pop(), A=info[i].A;
+      const nb=adj[i].concat(same.get(key(i)));
+      for (const j of nb){ if (info[j]) continue; const y=a.getY(j);
+        if (y>A.elbow.y-0.04*top) continue;
+        if (Math.hypot(a.getX(j)-A.hand.x, y-A.hand.y, a.getZ(j)-A.hand.z)>0.12*top) continue;
+        info[j]={ A, part:1, t:1 }; q.push(j); } }
+  };
   for (const p of parts){
-    p.g.applyMatrix4(fit);
     const a=p.g.attributes.position, n=a.count, si=new Uint16Array(n*4), sw=new Float32Array(n*4), d=new Float32Array(segs.length);
+    // only pieces that reach above the elbow can be arm (skin, sleeves) — not shorts or socks next to the hand
+    p.g.computeBoundingBox(); const armOK = Object.values(armL).some(A=>p.g.boundingBox.max.y > A.elbow.y+0.08*top);
+    // clothing (doesn't reach the floor) only follows the arm above the elbow: sleeves yes, shirt hem no
+    const fullBody = p.g.boundingBox.min.y < 0.2*top, elbowY=Math.min(...Object.values(armL).map(A=>A.elbow.y).concat([1e9]));
+    const info=new Array(n); if (armOK) for (let i=0;i<n;i++){ const y=a.getY(i); if (fullBody || y>elbowY) info[i]=armOf(a.getX(i),y,a.getZ(i)); }
+    if (armOK && fullBody) growHands(p.g,info);
     for (let i=0;i<n;i++){
       const x=a.getX(i), y=a.getY(i), z=a.getZ(i);
+      const am=info[i];
+      if (am){   // shoulder blends into the chest, the elbow blends upper and fore arm
+        const t=am.t, U=am.A.ui, F=U+1;
+        if (am.part===0){
+          if (t<0.2){ const w=Math.max(0,t)/0.2; si[i*4]=U; sw[i*4]=w; si[i*4+1]=idx.Spine2; sw[i*4+1]=1-w; }
+          else if (t>0.85){ const w=(t-0.85)/0.3; si[i*4]=U; sw[i*4]=1-w; si[i*4+1]=F; sw[i*4+1]=w; }
+          else { si[i*4]=U; sw[i*4]=1; }
+        } else if (t<0.12){ const w=0.5+Math.max(0,t)/0.24; si[i*4]=F; sw[i*4]=w; si[i*4+1]=U; sw[i*4+1]=1-w; }
+        else { si[i*4]=F; sw[i*4]=1; }
+        continue;
+      }
       let b1=0, d1=1e9;
       for (let k=0;k<segs.length;k++){
         const sg=segs[k];
@@ -1917,10 +2010,13 @@ function buildRigProto(def, skinScene, mo){
     p.g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw,4));
     p.mat=toonOf(p.mat,true);
   }
-  const bones=RIG_BONES.map(B), skel=new THREE.Skeleton(bones);
+  const armBones=Object.keys(armL).length===2;
+  holder.updateMatrixWorld(true);
+  const bones=RIG_BONES.concat(armBones?ARM_BONES:[]).map(B), skel=new THREE.Skeleton(bones);
   const wq=new THREE.Quaternion();
-  const legAxes={}; for (const n of ['LeftUpLeg','RightUpLeg','LeftLeg','RightLeg']){ B(n).getWorldQuaternion(wq); legAxes[n]=new THREE.Vector3(1,0,0).applyQuaternion(wq.invert()); }
-  return { rig, parts, inverses:skel.boneInverses, tracks, legAxes, scale:def.h/top };
+  const legAxes={}; for (const n of ['LeftUpLeg','RightUpLeg','LeftLeg','RightLeg'].concat(armBones?ARM_BONES:[])){ B(n).getWorldQuaternion(wq); legAxes[n]=new THREE.Vector3(1,0,0).applyQuaternion(wq.invert()); }
+  const armRest = armBones ? Object.fromEntries(ARM_BONES.map(n=>[n,B(n).quaternion.clone()])) : null;
+  return { rig, parts, inverses:skel.boneInverses, tracks, legAxes, armBones, armRest, scale:def.h/top };
 }
 function buildStaticProto(def, skinScene){
   const root=skinScene; root.traverse(o=>{ if (o.isMesh){ o.material=toonOf(o.material,false); o.castShadow=true; } });
@@ -1929,7 +2025,7 @@ function buildStaticProto(def, skinScene){
   root.scale.setScalar(sc); root.position.set(-(box.max.x+box.min.x)/2*sc, -box.min.y*sc, -(box.max.z+box.min.z)/2*sc);
   return { root };
 }
-const OWN_LEGS=['upperleg_l','upperleg_r','lowerleg_l','lowerleg_r'];
+const OWN_LEGS=['upperleg_l','upperleg_r','lowerleg_l','lowerleg_r'], OWN_ARMS=['upperarm_l','upperarm_r','lowerarm_l','lowerarm_r'];
 function buildOwnProto(def, gltf){
   if (!THREE.SkeletonUtils) throw new Error('SkeletonUtils');
   const scene=gltf.scene, clip=gltf.animations && gltf.animations[0];
@@ -1954,7 +2050,15 @@ function buildOwnProto(def, gltf){
   let idleT=def.t0;
   if (def.own==='walk'){ let best=1e9; const a=new THREE.Vector3(), b=new THREE.Vector3();
     for (let k=0;k<=24;k++){ const t=def.t0+(clip.duration-def.t0)*k/24, mm=sample(probe,t); const d=find(mm,'foot_l').getWorldPosition(a).distanceTo(find(mm,'foot_r').getWorldPosition(b)); if (d<best){ best=d; idleT=t; } } }
-  return { own:def.own, scene, tracks, dur:clip.duration, t0:def.t0, idleT, legAxes, scale, oy:-box.min.y*scale };
+  // running arms for clips that don't swing them (idle, dance): take the arms from the frame where the hands hang lowest
+  let armT=null;
+  if (def.own!=='walk' && OWN_ARMS.every(n=>find(m,n)) && find(m,'hand_l') && find(m,'hand_r') && find(m,'hip')){
+    let best=1e9; const a=new THREE.Vector3(), b=new THREE.Vector3(), c=new THREE.Vector3();
+    for (let k=0;k<=30;k++){ const t=def.t0+(clip.duration-def.t0)*k/30, mm=sample(probe,t);
+      const y=find(mm,'hand_l').getWorldPosition(a).y+find(mm,'hand_r').getWorldPosition(b).y-2*find(mm,'hip').getWorldPosition(c).y; if (y<best){ best=y; armT=t; } }
+    const ma=sample(probe,armT); for (const n of OWN_ARMS){ find(ma,n).getWorldQuaternion(wq); legAxes[n]=new THREE.Vector3(1,0,0).applyQuaternion(wq.invert()); }
+  }
+  return { own:def.own, scene, tracks, dur:clip.duration, t0:def.t0, idleT, armT, legAxes, scale, oy:-box.min.y*scale };
 }
 function makeSkinInstance(id){
   const def=SKIN_DEFS[id], pr=skinProtos[id], wrap=new THREE.Group();
@@ -1962,17 +2066,19 @@ function makeSkinInstance(id){
     const inst=THREE.SkeletonUtils.clone(pr.scene), holder=new THREE.Group(); holder.add(inst);
     holder.scale.setScalar(pr.scale); holder.position.y=pr.oy; wrap.add(holder);
     const m={}; inst.traverse(o=>{ if (o.name) m[o.name]=o; });
-    const B={}; for (const n of OWN_LEGS) for (const k in m) if (k.endsWith('_'+n)) B[n]=m[k];
-    wrap.userData.rig={ own:pr.own, dur:pr.dur, t0:pr.t0, idleT:pr.idleT, axes:pr.legAxes, B, seed:Math.random()*pr.dur,
-      tracks:pr.tracks.map(t=>({ o:m[t.node], path:t.path, interp:t.interp })).filter(t=>t.o) };
+    const B={}; for (const n of OWN_LEGS.concat(OWN_ARMS)) for (const k in m) if (k.endsWith('_'+n)) B[n]=m[k];
+    const tracks=pr.tracks.map(t=>({ o:m[t.node], path:t.path, interp:t.interp })).filter(t=>t.o);
+    wrap.userData.rig={ own:pr.own, dur:pr.dur, t0:pr.t0, idleT:pr.idleT, armT:pr.armT, axes:pr.legAxes, B, seed:Math.random()*pr.dur, tracks,
+      armTracks: pr.armT!==null ? tracks.filter(t=>t.path==='quaternion' && /_(upper|lower)arm/.test(t.o.name)) : [] };
   } else if (pr.rig){
     const holder=new THREE.Group(), rig=pr.rig.clone(true); holder.add(rig);
-    const bones=RIG_BONES.map(n=>rig.getObjectByName('mixamorig'+n));
+    const bones=RIG_BONES.concat(pr.armBones?ARM_BONES:[]).map(n=>rig.getObjectByName('mixamorig'+n));
     const skel=new THREE.Skeleton(bones, pr.inverses.map(m=>m.clone()));
     for (const p of pr.parts){ const sm=new THREE.SkinnedMesh(p.g,p.mat); sm.bind(skel,new THREE.Matrix4()); sm.castShadow=true; sm.frustumCulled=false; holder.add(sm); }
     holder.scale.setScalar(pr.scale); wrap.add(holder);
     const BM=Object.fromEntries(RIG_BONES.map((n,i)=>[n,bones[i]]));
-    wrap.userData.rig={ axes:pr.legAxes, B:BM, tracks:pr.tracks.map(tr=>({ b:BM[tr.name], interp:tr.interp })).filter(t=>t.b) };
+    wrap.userData.rig={ axes:pr.legAxes, B:BM, tracks:pr.tracks.map(tr=>({ b:BM[tr.name], interp:tr.interp })).filter(t=>t.b),
+      A: pr.armBones ? Object.fromEntries(ARM_BONES.map((n,i)=>[n,bones[RIG_BONES.length+i]])) : null, rest:pr.armRest };
   } else wrap.add(pr.root.clone(true));
   if (!skinHalos[id]) skinHalos[id]=new THREE.MeshBasicMaterial({ color:def.halo, transparent:true, opacity:0.75, depthWrite:false, blending:THREE.AdditiveBlending });
   const halo=new THREE.Mesh(new THREE.RingGeometry(0.34,0.5,32), skinHalos[id]); halo.rotation.x=-Math.PI/2; halo.position.y=0.04; wrap.add(halo);
@@ -1981,6 +2087,13 @@ function makeSkinInstance(id){
 function loadSkin(id){
   const def=SKIN_DEFS[id];
   if (!def || skinStates[id]) return;
+  if (def.base){   // colour variant: wait for the base model, then recolour it
+    const pb=skinProtos[def.base];
+    if (pb){ skinProtos[id]=tintProto(pb,def.tint); skinStates[id]=skinStates[def.base]; applySkins(); }
+    else if (skinStates[def.base]==='failed'){ skinStates[id]='failed'; if (SV.eq.skin===id) toast('スキンを読み込めませんでした'); }
+    else loadSkin(def.base);
+    return;
+  }
   skinStates[id]='loading';
   const fail=()=>{ skinStates[id]='failed'; if (SV.eq.skin===id){ toast('スキンを読み込めませんでした'); applySkins(); } };
   fetchGLB(def.url, gltf=>{
@@ -1999,7 +2112,8 @@ function loadSkin(id){
   }, fail);
 }
 function applySkins(){
-  const id=SV.eq.skin, def=SKIN_DEFS[id];
+  const id=SV.eq.skin, def=SKIN_DEFS[id], kit=SKIN_KITS[id]||SKIN_KITS.s_def;
+  for (const p of teams[HOME].field){ p.mats.j.color.setHex(kit.shirt); p.mats.s.color.setHex(kit.shorts); p.mats.shoe.color.setHex(kit.shoe); p.mats.j.emissive.setHex(kit.glow||0); }
   if (def && !skinProtos[id]) loadSkin(id);
   const use=!!(def && skinProtos[id]);
   for (const p of teams[HOME].field){
@@ -2022,6 +2136,11 @@ function poseOwn(R,v){
     const sw=Math.sin(ph)*Math.min(1,amp)*0.75;
     rot('upperleg_l',-sw); rot('upperleg_r',sw);
     rot('lowerleg_l',Math.max(0,Math.sin(ph-0.9))*amp*1.1); rot('lowerleg_r',Math.max(0,-Math.sin(ph-0.9))*amp*1.1);
+    if (R.armTracks.length){   // arms down from the clip, swinging against the legs
+      for (const tr of R.armTracks) tr.o.quaternion.fromArray(tr.interp.evaluate(R.armT));
+      const a=Math.min(1,amp), asw=Math.sin(ph)*a*0.85, bend=-(0.3+0.5*a);
+      rot('upperarm_l',asw); rot('upperarm_r',-asw); rot('lowerarm_l',bend); rot('lowerarm_r',bend);
+    }
   }
   if (kick>0){ const p=1-kick/0.25, s=Math.sin(Math.PI*p); rot('upperleg_r',-1.25*s); rot('lowerleg_r',0.7*Math.sin(Math.PI*Math.min(1,p*1.8))*(1-p)); }
 }
@@ -2031,6 +2150,13 @@ function poseRig(R,v){
   const kick=v[8], amp=v[4], ph=v[3];
   const t = kick>0 ? lerp(0.16, 0.6, 1-kick/0.25) : 0;
   for (const tr of R.tracks) tr.b.quaternion.fromArray(tr.interp.evaluate(t));
+  if (R.A){   // arms hang from their fitted rest pose and swing against the legs while running
+    for (const n of ARM_BONES) R.A[n].quaternion.copy(R.rest[n]);
+    const rotA=(n,ang)=>R.A[n].quaternion.multiply(_rq.setFromAxisAngle(R.axes[n],ang));
+    if (kick>0){ const k=Math.sin(Math.PI*(1-kick/0.25)); rotA('LeftArm',0.7*k); rotA('RightArm',-0.35*k); }
+    else if (amp>=0.04){ const a=Math.min(1,amp), asw=Math.sin(ph)*a*0.85, bend=-(0.3+0.5*a);
+      rotA('LeftArm',asw); rotA('RightArm',-asw); rotA('LeftForeArm',bend); rotA('RightForeArm',bend); }
+  }
   if (kick>0 || amp<0.04) return;
   const sw=Math.sin(ph)*Math.min(1,amp)*0.75, rot=(n,ang)=>R.B[n].quaternion.multiply(_rq.setFromAxisAngle(R.axes[n],ang));
   rot('LeftUpLeg',-sw); rot('RightUpLeg',sw);
@@ -3448,7 +3574,7 @@ window.__buzzkick = {
     const out={ goals:sc, shots:G.shotCount.slice(), pass:Object.assign({},G.pst) }; G.pst={tries:0,ok:0,cut:0}; G.dbg={shots:0,gk:0,over:0,wide:0,block:0,post:0,spd:0,dist:0};
     G.mode=prevMode; applyParams(); resetKickoff(HOME); return out;
   },
-  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say, renderer, scene, perf, camera, bubbles }),
+  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say, renderer, scene, perf, camera, bubbles, skinProtos, skinStates, SKIN_DEFS, loadSkin, applyPose, SV, applyCosmetics }),
   state:()=>({ mode:G.mode, phase:G.phase, clock:G.clock, score:G.score.slice(), likes:G.likes, human:G.human&&G.human.role }),
   start:startMatch,
   debugGoal(team=HOME){ const s=team===HOME?-1:1; ball.owner=null; ball.inGoal=false; Object.assign(ball,{x:0.4,y:0.5,z:s*(HL-3),vx:0,vy:1,vz:s*18}); ball.lastKick={by:teams[team].field[3],team,type:'shot',x:0,z:s*(HL-14),t:G.simTime,dist:14,flag:false}; teams[1-team].gk.x=-1.4; },
