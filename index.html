@@ -284,6 +284,9 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .bubble{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;font:900 14px/1.25 var(--body);color:var(--ink);background:#fff;border:2.5px solid var(--ink);border-radius:14px;padding:6px 11px;box-shadow:3px 3px 0 var(--pink);will-change:left,top}
 .bubble:after{content:"";position:absolute;left:calc(50% - 7px);bottom:-11px;border:7px solid transparent;border-top:9px solid var(--ink);border-bottom:0}
 .bubble.mate{background:#fff3b0;box-shadow:3px 3px 0 var(--mint)}
+.bubble.tt:after{top:-11px;bottom:auto;border:7px solid transparent;border-bottom:9px solid var(--ink);border-top:0}
+.bubble.tl:after{left:-11px;top:calc(50% - 7px);bottom:auto;border:7px solid transparent;border-right:9px solid var(--ink);border-left:0}
+.bubble.tr:after{left:auto;right:-11px;top:calc(50% - 7px);bottom:auto;border:7px solid transparent;border-left:9px solid var(--ink);border-right:0}
 .bubble.mate b{display:block;font:900 10px/1 var(--body);color:#8a6a00;letter-spacing:.06em;margin-bottom:3px}
 .pop.big{font-size:34px;color:var(--lemon);text-shadow:3px 3px 0 var(--pink)}
 .pop.perfect{font-size:38px;color:#fff3b0;text-shadow:0 0 14px #ffc93c,3px 3px 0 #ff8a3d}
@@ -1607,25 +1610,49 @@ function bubble(p,text,kind){
     {duration:b.dur*1000,easing:'ease-out',fill:'forwards'}).onfinish=()=>dropBubble(b);   // lifetime follows the animation (wall clock)
 }
 function dropBubble(b){ const i=bubbles.indexOf(b); if (i>=0) bubbles.splice(i,1); b.el.remove(); }
-// anchor = bottom centre of the bubble, above the player's head
-function placeBubble(b,placed){
-  const v=b.p.v; _pp.set(v[0], v[7]+2.25+b.lift, v[1]).project(camera);
-  if (_pp.z>1){ b.el.style.visibility='hidden'; return; }
-  b.el.style.visibility='';
-  // stay clear of the score bar on top and the controls at the bottom, even when the player has flown off screen
+// (x,y) = bottom centre of the bubble. On screen: just above the player's head.
+// Off screen (common in the first-person shot, where players fly past the lens): pinned to the edge on the
+// player's side with the tail pointing at them.
+function placeBubble(b,placed,rdt){
+  const v=b.p.v, W=innerWidth, H=innerHeight, cine=!!G.cine;
+  const close = cine && G.cine.phase!=='focus';
+  const top = cine ? H*0.11+10 : Math.min(130,H*0.3), bot = H-(cine ? H*0.11+10 : Math.min(120,H*0.25));
   const w=b.w||(b.w=b.el.offsetWidth), h=b.h||(b.h=b.el.offsetHeight);
-  let x=clamp((_pp.x*0.5+0.5)*innerWidth, 90, innerWidth-90), y=clamp((-_pp.y*0.5+0.5)*innerHeight, Math.min(130,innerHeight*0.3), innerHeight-Math.min(120,innerHeight*0.25));
-  if (placed){   // don't sit on top of an earlier bubble: drop below it
-    for (let k=0;k<4;k++){ const hit=placed.find(q=>Math.abs(q.x-x)<(q.w+w)/2+6 && Math.abs(q.y-y)<(q.h+h)/2+4); if (!hit) break; y=hit.y+h+8; }
+  const xl=w/2+10, xr=W-w/2-10, yt=top+h;
+  // is the player's body in view? (decides between "above the head" and "pinned to the edge")
+  _pp.set(v[0], v[7]+1.0, v[1]).project(camera);
+  const behind=_pp.z>1, bx=((behind?-_pp.x:_pp.x)*0.5+0.5)*W, by=(-(behind?-_pp.y:_pp.y)*0.5+0.5)*H;
+  const inView = !behind && bx>0 && bx<W && by>top && by<bot;
+  _pp.set(v[0], v[7]+(close?1.85:2.05)+b.lift, v[1]).project(camera);
+  let x=(_pp.x*0.5+0.5)*W, y=(-_pp.y*0.5+0.5)*H, tail='';
+  if (inView){
+    if (_pp.z<=1 && y>=yt){ x=clamp(x,xl,xr); y=Math.min(y,bot); }   // room above the head
+    else {   // head is out of frame (up close, or high up under the score bar): sit beside the player, tail pointing at them
+      const right = bx < W/2;
+      x=clamp(bx+(right?1:-1)*(w/2+26), xl, xr); y=clamp(by+h/2, yt, bot); tail = right ? 'tl' : 'tr';
+    }
+  }
+  else {
+    x=bx; y=by;
+    const cx=W/2, cy=(yt+bot)/2, dx=(x-cx)||0.01, dy=(y-cy)||0.01;
+    const kx=((dx>0?xr:xl)-cx)/dx, ky=((dy>0?bot:yt)-cy)/dy;
+    if (kx<ky){ x=cx+dx*kx; y=clamp(cy+dy*kx,yt,bot); tail=dx>0?'tr':'tl'; } else { x=clamp(cx+dx*ky,xl,xr); y=cy+dy*ky; tail=dy>0?'':'tt'; }
+    if (tail==='tr'||tail==='tl') y=clamp(y+h/2,yt,bot);   // side tail sits at mid-height: centre the box on the line
+  }
+  if (placed){   // don't sit on an earlier bubble
+    for (let k=0;k<4;k++){ const hit=placed.find(q=>Math.abs(q.x-x)<(q.w+w)/2+6 && Math.abs(q.y-y)<(q.h+h)/2+4); if (!hit) break; y = hit.y+h+8<=bot ? hit.y+h+8 : hit.y-hit.h-8; }
     placed.push({x,y,w,h});
   }
-  b.el.style.left=x+'px'; b.el.style.top=y+'px';
+  // glide rather than jump (the camera swings fast in the special)
+  if (b.x===undefined || !rdt){ b.x=x; b.y=y; } else { const k=1-Math.exp(-16*rdt); b.x+=(x-b.x)*k; b.y+=(y-b.y)*k; }
+  if (b.tail!==tail){ if (b.tail) b.el.classList.remove(b.tail); if (tail) b.el.classList.add(tail); b.tail=tail; }
+  b.el.style.left=b.x+'px'; b.el.style.top=b.y+'px';
 }
-function bubblesFrame(){
+function bubblesFrame(rdt){
   const placed=[];
   for (const b of bubbles.slice()){
     if (G.phase==='replay' || G.mode!=='match'){ dropBubble(b); continue; }
-    placeBubble(b,placed);
+    placeBubble(b,placed,rdt);
   }
 }
 function popAt(p,text,cls){ if (!p) return; const x=p.v?p.v[0]:p.x, z=p.v?p.v[1]:p.z; pop3D(text,x,2.3,z,cls); }
@@ -3262,7 +3289,7 @@ function render(rdt){
     if (q.g.visible!==vis) q.g.visible=vis;
   }
   renderer.render(scene,camera);
-  bubblesFrame();
+  bubblesFrame(rdt);
 }
 // what the chat talks about when nothing special just happened
 function idleKind(){
@@ -3406,7 +3433,7 @@ window.__buzzkick = {
     const out={ goals:sc, shots:G.shotCount.slice(), pass:Object.assign({},G.pst) }; G.pst={tries:0,ok:0,cut:0}; G.dbg={shots:0,gk:0,over:0,wide:0,block:0,post:0,spd:0,dist:0};
     G.mode=prevMode; applyParams(); resetKickoff(HOME); return out;
   },
-  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say, renderer, scene, perf }),
+  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say, renderer, scene, perf, camera, bubbles }),
   state:()=>({ mode:G.mode, phase:G.phase, clock:G.clock, score:G.score.slice(), likes:G.likes, human:G.human&&G.human.role }),
   start:startMatch,
   debugGoal(team=HOME){ const s=team===HOME?-1:1; ball.owner=null; ball.inGoal=false; Object.assign(ball,{x:0.4,y:0.5,z:s*(HL-3),vx:0,vy:1,vz:s*18}); ball.lastKick={by:teams[team].field[3],team,type:'shot',x:0,z:s*(HL-14),t:G.simTime,dist:14,flag:false}; teams[1-team].gk.x=-1.4; },
