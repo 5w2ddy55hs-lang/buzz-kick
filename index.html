@@ -835,7 +835,7 @@ function addXP(n){ SV.xp+=n; let ups=0; while (SV.xp>=needXP(SV.lv)){ SV.xp-=nee
    audio (all synthesized, starts on first button press)
    ========================================================= */
 const AudioSys = (() => {
-  let crowdBus=null, bedG=null, bedNext=0;
+  let crowdBus=null, shoutBus=null, bedG=null, bedNext=0;
   let ctx=null, master, sfxG, musG, noiseBuf, an=null, unlockEl=null, on=true, timer=null, nextT=0, stepI=0, fever=false;
   // iPhone: Web Audio is muted by the silent switch unless the page's audio session is "playback".
   function silentWav(){ const n=800, buf=new Uint8Array(44+n), v=new DataView(buf.buffer), w=(o,t)=>{ for(let i=0;i<t.length;i++) buf[o+i]=t.charCodeAt(i); };
@@ -860,6 +860,7 @@ const AudioSys = (() => {
     // crowd: voices + murmur go through a gentle lowpass and a short synthetic reverb
     crowdBus = ctx.createGain(); crowdBus.gain.value = 2.4;
     const clp = ctx.createBiquadFilter(); clp.type='lowpass'; clp.frequency.value=4200; crowdBus.connect(clp); clp.connect(sfxG);
+    shoutBus = ctx.createGain(); shoutBus.gain.value = 0.4; shoutBus.connect(crowdBus);   // shouts sit a little under the crowd
     try {
       const len=Math.floor(ctx.sampleRate*1.6), ir=ctx.createBuffer(2,len,ctx.sampleRate);
       for (let c=0;c<2;c++){ const d=ir.getChannelData(c); for (let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3); }
@@ -919,9 +920,9 @@ const AudioSys = (() => {
       if (kind==='roar' || kind==='laugh') for (let i=0;i<(kind==='roar'?18:8);i++) noise(t+0.1+Math.random()*1.4,0.03,0.08*k,C,'bandpass',1500+Math.random()*1200,1.4);
     },
     // fallback "voice" when the device has no Japanese speech voice
-    shout(role){ if(!ok()||!crowdBus) return; const t=ctx.currentTime;
-      if (role==='police'){ noise(t,0.05,0.3,crowdBus,'highpass',3000,0.7); voice(t+0.04,150,['o','o','a','a'],0.8,0.3,0.75,crowdBus); voice(t+0.05,225,['o','o','a','a'],0.75,0.08,0.75,crowdBus); }
-      else { const f=240+Math.random()*90; voice(t,f,['u','o','o','o'],0.9,0.12,1.3,crowdBus); voice(t+0.02,f*1.5,['u','o','o'],0.85,0.05,1.25,crowdBus); }
+    shout(role){ if(!ok()||!shoutBus) return; const t=ctx.currentTime, B=shoutBus;
+      if (role==='police'){ noise(t,0.05,0.3,B,'highpass',3000,0.7); voice(t+0.04,150,['o','o','a','a'],0.8,0.3,0.75,B); voice(t+0.05,225,['o','o','a','a'],0.75,0.08,0.75,B); }
+      else { const f=240+Math.random()*90; voice(t,f,['u','o','o','o'],0.9,0.12,1.3,B); voice(t+0.02,f*1.5,['u','o','o'],0.85,0.05,1.25,B); }
     },
     groan(){ if(!ok())return; const t=ctx.currentTime; osc('sawtooth',220,t,0.9,0.05,sfxG,140,0.1); noise(t,0.8,0.12,sfxG,'lowpass',500,0.5,0.1); },
     fever(){ if(!ok())return; const t=ctx.currentTime; [0,4,7,12,16].forEach((n,i)=>osc('square',523.25*Math.pow(2,n/12),t+i*0.06,0.12,0.08,sfxG)); },
@@ -983,6 +984,7 @@ const Voice=(()=>{
   const pickV=()=>{ try { const vs=speechSynthesis.getVoices().filter(v=>/^ja/i.test(v.lang)); ja=vs.find(v=>v.localService)||vs[0]||null; } catch(e){ ja=null; } };
   if (can){ pickV(); try { speechSynthesis.addEventListener('voiceschanged',pickV); } catch(e){} }
   const ROLE={ fan:{ pitch:1.6, rate:1.2 }, police:{ pitch:0.65, rate:1.05 } };
+  const VOL=0.4;   // a little under the crowd noise
   return {
     // call from a tap/click handler: plays a silent utterance so later speech is allowed
     unlock(){ if (!can || unlocked) return; try { pickV(); const u=new SpeechSynthesisUtterance(' '); u.volume=0; if (ja) u.voice=ja; speechSynthesis.speak(u); unlocked=true; } catch(e){} },
@@ -990,14 +992,14 @@ const Voice=(()=>{
     test(){
       this.unlock(); AudioSys.init(); AudioSys.resume();
       const lines=[['推しに会いに来たー！','fan'],['そこの人、止まりなさい！','police']];
-      if (can && ja){ try { speechSynthesis.cancel(); for (const [t,r] of lines){ const u=new SpeechSynthesisUtterance(t), q=ROLE[r]; u.voice=ja; u.lang=ja.lang; u.pitch=q.pitch; u.rate=q.rate; u.volume=1; speechSynthesis.speak(u); } return; } catch(e){} }
+      if (can && ja){ try { speechSynthesis.cancel(); for (const [t,r] of lines){ const u=new SpeechSynthesisUtterance(t), q=ROLE[r]; u.voice=ja; u.lang=ja.lang; u.pitch=q.pitch; u.rate=q.rate; u.volume=VOL; speechSynthesis.speak(u); } return; } catch(e){} }
       AudioSys.S.shout('fan'); setTimeout(()=>AudioSys.S.shout('police'),1000);
     },
     say(kind,role,force){
       if (!AudioSys.on || G.mode!=='match' || G.paused) return;
       const now=performance.now(); if (!force && now-last<1200) return; last=now;
       const text=pick(VOICE_LINES[kind]||VOICE_LINES.invade);
-      if (can && ja){ try { const u=new SpeechSynthesisUtterance(text), r=ROLE[role]||ROLE.fan; u.voice=ja; u.lang=ja.lang; u.pitch=r.pitch; u.rate=r.rate; u.volume=1; speechSynthesis.speak(u); return; } catch(e){} }
+      if (can && ja){ try { const u=new SpeechSynthesisUtterance(text), r=ROLE[role]||ROLE.fan; u.voice=ja; u.lang=ja.lang; u.pitch=r.pitch; u.rate=r.rate; u.volume=VOL; speechSynthesis.speak(u); return; } catch(e){} }
       AudioSys.S.shout(role);
     },
     stop(){ if (can) try { speechSynthesis.cancel(); } catch(e){} },
