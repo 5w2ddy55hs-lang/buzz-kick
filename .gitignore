@@ -1,3 +1,4 @@
 # third-party models that must not be redistributed (kept out of this public repo)
 assets/skin-lr.json
 assets/skin-rp-*.json
+assets/motions-soccer.json

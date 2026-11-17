@@ -748,7 +748,7 @@ const BALL_R=0.24, GRAV=16;
 const HOME=0, AWAY=1;
 const STEP=1/120;
 const MATCH_TIME=90;
-const REC_N=480, P_VIS=10, NX_FAN=8, NX_POL=3, NX=NX_FAN+NX_POL, X_VIS=8, REC_STRIDE=3+10*P_VIS+NX*X_VIS;
+const REC_N=480, P_VIS=14, NX_FAN=8, NX_POL=3, NX=NX_FAN+NX_POL, X_VIS=8, REC_STRIDE=3+10*P_VIS+NX*X_VIS;
 const MINT=0x3ff5d0, PINK=0xff4fa3, LEMON=0xffe94d, PAPER=0xf5f2ff;
 const FD='"Dela Gothic One","Hiragino Kaku Gothic StdN","Noto Sans JP",sans-serif';
 const FB='"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif';
@@ -759,8 +759,8 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window);
 
 const DIFFS = {
-  yuru:  { key:'yuru',  label:'ゆる', run:5.4,  sprint:7.1, steal:0.7, gkReact:0.3, gkDive:3.5, gkErr:0.6, shotErr:1.3, feint:0.04, tackle:0.82 },
-  gachi: { key:'gachi', label:'ガチ', run:6.15, sprint:8.1, steal:1.5, gkReact:0.22, gkDive:4.3, gkErr:0.42,  shotErr:0.9, feint:0.22, tackle:0.62 },
+  yuru:  { key:'yuru',  label:'ゆる', run:5.4,  sprint:7.1, steal:0.7, gkReact:0.3, gkDive:3.5, gkErr:0.6, shotErr:1.3, feint:0.04, tackle:0.82, slide:0.22 },
+  gachi: { key:'gachi', label:'ガチ', run:6.15, sprint:8.1, steal:1.5, gkReact:0.22, gkDive:4.3, gkErr:0.42,  shotErr:0.9, feint:0.22, tackle:0.62, slide:0.5 },
 };
 const HOME_AI = { run:5.95, sprint:7.9, steal:1.0, gkReact:0.25, gkDive:3.9, gkErr:0.5, shotErr:1.0, feint:0.08 };
 const RIVALS = ['ぴえんFC','チルい東京','沼ユナイテッド','タイパ最強団','推し活シティ','深夜テンションズ','エモ横丁SC','わかりみ連合'];
@@ -1845,12 +1845,15 @@ function pullGacha(){
 }
 // player skins: static 3D models auto-rigged onto the X Bot skeleton (kick clip + procedural run)
 // all models ship as base64 GLB inside JSON so any static host serves them
+setTimeout(loadAnim,0);
 const SKIN_DEFS={
   s_pro:{ url:'assets/skin-pro.json', h:1.86, halo:0xffd23f, arms:true },
   s_pro_sky:  { base:'s_pro', halo:0x7fd6ff, tint:{ 'Micah | top':0x6ec6ff, 'Micah | bottom':0xf2f2f2 } },
   s_pro_black:{ base:'s_pro', halo:0xb9b0e4, tint:{ 'Micah | top':0x24222e, 'Micah | bottom':0x24222e } },
   s_pro_mint: { base:'s_pro', halo:0x3ff5d0, tint:{ 'Micah | top':0x3ff5d0, 'Micah | bottom':0x1d1a4d } },
   s_pro_gold: { base:'s_pro', halo:0xffd23f, tint:{ 'Micah | top':0xf1c232, 'Micah | bottom':0x15131f } },
+  s_gk0: { base:'s_pro', gk:true, noHalo:true, tint:{ 'Micah | top':LEMON,    'Micah | bottom':0x1d1a4d } },
+  s_gk1: { base:'s_pro', gk:true, noHalo:true, tint:{ 'Micah | top':0x9b7bff, 'Micah | bottom':0x2a1f5c } },
   s_lr: { url:'assets/skin-lr.json',  h:1.8,  halo:0xff4fa3, rainbow:true },   // third-party scan: shipped with the private build only
   // rigged + animated third-party models (private build only): they use their own clip
   s_ur_sophia:{ url:'assets/skin-rp-sophia.json', h:1.78, halo:0x3ff5d0, own:'idle',  t0:0.5 },
@@ -1858,6 +1861,102 @@ const SKIN_DEFS={
   s_ur_manuel:{ url:'assets/skin-rp-manuel.json', h:1.86, halo:0xff8a3d, own:'dance', t0:0.5 },
 };
 const MOTION_URL='assets/motion-xbot.json';
+// full-body clips for every X Bot rig (3D skins + keepers). Optional: without the file everything falls back to the procedural poses.
+const ANIM_URL='assets/motions-soccer.json';
+let ANIM=null;
+function loadAnim(){
+  fetch(ANIM_URL).then(r=>r.ok?r.json():null).then(j=>{
+    if (!j || !j.clips || !j.bones) return;
+    j.NB=j.bones.length; ANIM=j;
+    const C=animClip('offensive idle'); j.hipRef = C ? C.P[1] : 1042;
+  }).catch(()=>{});
+}
+const b64i16=b=>{ const s=atob(b), u=new Uint8Array(s.length); for (let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return new Int16Array(u.buffer); };
+function animClip(name){ const C=ANIM && ANIM.clips[name]; if (!C) return null; if (!C.Q){ C.Q=b64i16(C.q); C.P=b64i16(C.p); } return C; }
+// sample a clip at t seconds into out (NB quaternions); returns hip height relative to standing
+function animSample(name,t,loop,out){
+  const C=animClip(name); if (!C) return 1;
+  const N=C.n-1, NB=ANIM.NB, Q=C.Q; let f=t*ANIM.fps;
+  if (loop){ f%=N; if (f<0) f+=N; } else f=clamp(f,0,N);
+  const i0=Math.floor(f), i1=Math.min(N,i0+1), a=f-i0;
+  for (let b=0;b<NB;b++){
+    const o0=(i0*NB+b)*4, o1=(i1*NB+b)*4; let x1=Q[o1], y1=Q[o1+1], z1=Q[o1+2], w1=Q[o1+3];
+    if (Q[o0]*x1+Q[o0+1]*y1+Q[o0+2]*z1+Q[o0+3]*w1<0){ x1=-x1; y1=-y1; z1=-z1; w1=-w1; }
+    const x=Q[o0]+(x1-Q[o0])*a, y=Q[o0+1]+(y1-Q[o0+1])*a, z=Q[o0+2]+(z1-Q[o0+2])*a, w=Q[o0+3]+(w1-Q[o0+3])*a, l=Math.hypot(x,y,z,w)||1;
+    out[b*4]=x/l; out[b*4+1]=y/l; out[b*4+2]=z/l; out[b*4+3]=w/l;
+  }
+  return (C.P[i0*3+1]+(C.P[i1*3+1]-C.P[i0*3+1])*a)/ANIM.hipRef;
+}
+function poseMix(A,B,w,out){   // out = nlerp(A,B,w)
+  for (let b=0;b<A.length;b+=4){
+    let x=B[b], y=B[b+1], z=B[b+2], q=B[b+3]; if (A[b]*x+A[b+1]*y+A[b+2]*z+A[b+3]*q<0){ x=-x; y=-y; z=-z; q=-q; }
+    const X=A[b]+(x-A[b])*w, Y=A[b+1]+(y-A[b+1])*w, Z=A[b+2]+(z-A[b+2])*w, W=A[b+3]+(q-A[b+3])*w, l=Math.hypot(X,Y,Z,W)||1;
+    out[b]=X/l; out[b+1]=Y/l; out[b+2]=Z/l; out[b+3]=W/l;
+  }
+}
+// actions: clip window [a,b] seconds played at sp; loop/hold actions are driven by game state
+const ACTS=[null,
+  {n:'pass',     c:'kick soccerball (2)',        a:0.12, b:0.5,  sp:1.3},
+  {n:'lob',      c:'kick soccerball',            a:0.2,  b:0.57, sp:1.2},
+  {n:'shotRun',  c:'strike foward jog',          a:0.45, b:1.15, sp:1.2},
+  {n:'header',   c:'header soccerball',          a:0.6,  b:1.4,  sp:1.2},
+  {n:'trap',     c:'receive soccerball',         a:0.7,  b:1.5,  sp:1.4},
+  {n:'slide',    c:'soccer tackle',              a:0.45, b:1.9,  sp:2.6},
+  {n:'trip',     c:'soccer trip',                a:0.1,  b:1.53, sp:2.0, next:'getup'},
+  {n:'getup',    c:'standing up',                a:0.15, b:1.67, sp:2.2},
+  {n:'blown',    c:'soccer trip',                a:0.3,  b:0.95, sp:1,   hold:true},
+  {n:'fallen',   c:'fallen idle',                a:0,    b:1.3,  sp:1,   loop:true},
+  {n:'overhead', c:'scissor kick',               a:0.15, b:2.77, sp:1},
+  {n:'celebrate',c:'stall soccerball (3)',       a:0,    b:2.3,  sp:1,   loop:true},
+  {n:'dismay',   c:'goalkeeper miss',            a:1.6,  b:2.83, sp:1,   hold:true},
+  {n:'gkDiveL',  c:'goalkeeper diving save',     a:0.75, b:2.2,  sp:1.7, hold:true},
+  {n:'gkDiveR',  c:'goalkeeper diving save (2)', a:0.75, b:2.2,  sp:1.7, hold:true},
+  {n:'gkRiseL',  c:'goalkeeper diving save',     a:2.2,  b:3.17, sp:1.6},
+  {n:'gkRiseR',  c:'goalkeeper diving save (2)', a:2.2,  b:3.2,  sp:1.6},
+  {n:'gkCatch',  c:'goalkeeper catch (2)',       a:0.05, b:0.6,  sp:1.2, next:'gkHold'},
+  {n:'gkCatchHi',c:'goalkeeper catch (4)',       a:0.25, b:1.1,  sp:1.3},
+  {n:'gkScoop',  c:'goalkeeper scoop',           a:0.4,  b:1.5,  sp:1.5},
+  {n:'gkHold',   c:'goalkeeper catch (2)',       a:0.58, b:0.6,  sp:1,   hold:true},
+  {n:'gkThrow',  c:'goalkeeper overhand throw',  a:1.4,  b:2.4,  sp:1.3},
+  {n:'gkRoll',   c:'goalkeeper pass',            a:1.0,  b:2.0,  sp:1.3},
+  {n:'gkPunt',   c:'goalkeeper drop kick',       a:2.0,  b:3.0,  sp:1.3},
+  {n:'gkBlock',  c:'goalkeeper body block (2)',  a:0.6,  b:1.7,  sp:1.4},
+  {n:'gkMiss',   c:'goalkeeper miss',            a:0.2,  b:2.83, sp:1,   hold:true},
+  {n:'gkDirect', c:'goalkeeper directing',       a:0.5,  b:6.5,  sp:1,   loop:true},
+];
+const ACT=Object.fromEntries(ACTS.map((d,i)=>[d?d.n:'',i]));
+const actLen = d => (d.b-d.a)/d.sp;
+function setAct(p,name,t0=0){ const id=ACT[name]; if (!id) return; p.act={ id, t:t0 }; }
+const JOG8=['jog forward','jog forward diagonal (2)','jog strafe left','jog backward diagonal (2)','jog backward','jog backward diagonal','jog strafe right','jog forward diagonal'];
+const _pa=new Float32Array(88), _pb=new Float32Array(88);
+// full-body pose of an X Bot rig from the pose record: locomotion (idle / 8-way jog / keeper shuffle) + action on top
+function animRig(R,v){
+  if (!R.MB){ R.MB={}; for (const n of ANIM.bones) R.MB[n]=R.root.getObjectByName('mixamorig'+n); R.hipY0=R.MB.Hips.position.y; R.seed=Math.random()*20; R.prev=new Float32Array(ANIM.NB*4); R.prevH=1; R.fresh=true; }
+  const NB=ANIM.NB, A=_pa.length>=NB*4?_pa:new Float32Array(NB*4), B=_pb.length>=NB*4?_pb:new Float32Array(NB*4);
+  const amp=v[4], ph=v[3], ang=v[10], id=v[11]|0, at=v[12];
+  let h=animSample(R.gk?'goalkeeper idle':'offensive idle', G.realT+R.seed, true, A);
+  const w=clamp((amp-0.05)/0.22,0,1);
+  if (w>0){
+    let clip, frac;
+    if (R.gk && amp<0.8 && Math.abs(Math.abs(ang)-Math.PI/2)<0.65){ clip = ang>0 ? 'goalkeeper sidestep' : 'goalkeeper sidestep (2)'; frac=((ph/Math.PI)%1+1)%1; }
+    else { clip=JOG8[((Math.round(ang/(Math.PI/4))%8)+8)%8]; frac=((ph/(Math.PI*2))%1+1)%1; }
+    const C=animClip(clip); const h2=animSample(clip, frac*(C?C.dur:1), true, B); poseMix(A,B,w,A); h+=(h2-h)*w;
+  }
+  if (id && ACTS[id]){
+    const d=ACTS[id], len=actLen(d);
+    let ct=d.a+at*d.sp; if (d.loop) ct=d.a+((at*d.sp)%(d.b-d.a)); else ct=Math.min(d.b,ct);
+    const h3=animSample(d.c, ct, false, B);
+    const wa=(d.loop||d.hold) ? Math.min(1,at/0.1+0.25) : clamp(Math.min(at/0.07+0.3, (len-at)/0.12),0,1);
+    poseMix(A,B,wa,A); h+=(h3-h)*wa;
+  }
+  // glide between states instead of snapping (direction changes, action ends)
+  const k = R.fresh ? 1 : 1-Math.exp(-(G.frameDt||0.016)*16);
+  poseMix(R.prev,A,k,R.prev); R.prevH+=(h-R.prevH)*k; R.fresh=false;
+  for (let b=0;b<NB;b++){ const o=R.MB[ANIM.bones[b]]; if (o) o.quaternion.set(R.prev[b*4],R.prev[b*4+1],R.prev[b*4+2],R.prev[b*4+3]); }
+  R.MB.Hips.position.y=R.hipY0*R.prevH;
+  // standing shot keeps the hand-picked kick clip for body and legs
+  if (!id && v[8]>0 && R.tracks){ const t=lerp(0.16,0.6,1-v[8]/0.25); for (const tr of R.tracks) tr.b.quaternion.fromArray(tr.interp.evaluate(t)); }
+}
 const skinProtos={}, skinStates={}, skinHalos={};
 function fetchGLB(url,onLoad,onFail){
   if (!THREE.GLTFLoader){ onFail(); return; }
@@ -2077,11 +2176,13 @@ function makeSkinInstance(id){
     for (const p of pr.parts){ const sm=new THREE.SkinnedMesh(p.g,p.mat); sm.bind(skel,new THREE.Matrix4()); sm.castShadow=true; sm.frustumCulled=false; holder.add(sm); }
     holder.scale.setScalar(pr.scale); wrap.add(holder);
     const BM=Object.fromEntries(RIG_BONES.map((n,i)=>[n,bones[i]]));
-    wrap.userData.rig={ axes:pr.legAxes, B:BM, tracks:pr.tracks.map(tr=>({ b:BM[tr.name], interp:tr.interp })).filter(t=>t.b),
+    wrap.userData.rig={ root:rig, gk:!!def.gk, axes:pr.legAxes, B:BM, tracks:pr.tracks.map(tr=>({ b:BM[tr.name], interp:tr.interp })).filter(t=>t.b),
       A: pr.armBones ? Object.fromEntries(ARM_BONES.map((n,i)=>[n,bones[RIG_BONES.length+i]])) : null, rest:pr.armRest };
   } else wrap.add(pr.root.clone(true));
-  if (!skinHalos[id]) skinHalos[id]=new THREE.MeshBasicMaterial({ color:def.halo, transparent:true, opacity:0.75, depthWrite:false, blending:THREE.AdditiveBlending });
-  const halo=new THREE.Mesh(new THREE.RingGeometry(0.34,0.5,32), skinHalos[id]); halo.rotation.x=-Math.PI/2; halo.position.y=0.04; wrap.add(halo);
+  if (!def.noHalo){
+    if (!skinHalos[id]) skinHalos[id]=new THREE.MeshBasicMaterial({ color:def.halo, transparent:true, opacity:0.75, depthWrite:false, blending:THREE.AdditiveBlending });
+    const halo=new THREE.Mesh(new THREE.RingGeometry(0.34,0.5,32), skinHalos[id]); halo.rotation.x=-Math.PI/2; halo.position.y=0.04; wrap.add(halo);
+  }
   return wrap;
 }
 function loadSkin(id){
@@ -2123,6 +2224,13 @@ function applySkins(){
     p.skinObj = use ? p.skinObjs[id] : null;
     p.body.visible=!use;
   }
+  for (const t of [HOME,AWAY]){   // keepers: always the 3D model once it has loaded
+    const g=teams[t].gk, gid='s_gk'+t;
+    if (!skinProtos[gid]){ loadSkin(gid); continue; }
+    g.skinObjs=g.skinObjs||{};
+    if (!g.skinObjs[gid]){ g.skinObjs[gid]=makeSkinInstance(gid); g.g.add(g.skinObjs[gid]); }
+    g.skinObj=g.skinObjs[gid]; g.skinObj.visible=true; g.body.visible=false;
+  }
 }
 function poseOwn(R,v){
   const amp=v[4], ph=v[3], kick=v[8], moving=amp>0.08, span=Math.max(0.1,R.dur-R.t0);
@@ -2147,6 +2255,7 @@ function poseOwn(R,v){
 // drive the rig from the same pose record the chibi uses (works for live play and replays)
 const _rq=new THREE.Quaternion();
 function poseRig(R,v){
+  if (ANIM && R.root){ animRig(R,v); return; }
   const kick=v[8], amp=v[4], ph=v[3];
   const t = kick>0 ? lerp(0.16, 0.6, 1-kick/0.25) : 0;
   for (const tr of R.tracks) tr.b.quaternion.fromArray(tr.interp.evaluate(t));
@@ -2205,7 +2314,7 @@ function launchSpecial(){
   const dx=C.cx-sx, dy=C.cy-sy, dz=-HL-sz, dl=Math.hypot(dx,dy,dz)||1, sp=30;
   Object.assign(ball,{ owner:null, y:sy, vx:dx/dl*sp, vy:dy/dl*sp, vz:dz/dl*sp, special:true, perfect:false, intended:null, shotT:0, lastTouch:p });
   ball.lastKick={ by:p, team:p.team, type:'shot', x:sx, z:sz, t:G.simTime, dist:hyp(sx-C.cx,sz+HL), flag:true };
-  p.kickT=0.25; p.noTouch=1; G.stats.shots++;
+  p.kickT=0.25; p.noTouch=1; G.stats.shots++; setAct(p,'overhead',0.9);
   AudioSys.S.spLaunch(); AudioSys.S.crowd('roar',1.1); flash('gold'); G.shake=0.8; vib([40,30,60]); cam.snap=true;
 }
 function blastPlayer(q){
@@ -2229,6 +2338,11 @@ function endCine(){
 function cineFrame(rdt){
   const C=G.cine; if (!C) return;
   C.t+=rdt;
+  if (C.phase==='focus'){   // pop the ball up while the shooter winds up the overhead kick
+    const k=clamp(C.t/1.15,0,1), e=k*k*(3-2*k), p=C.p;
+    ball.y=BALL_R+(1.25-BALL_R)*e; ball.x=p.x+Math.sin(p.facing)*(0.55-0.25*e); ball.z=p.z+Math.cos(p.facing)*(0.55-0.25*e);
+    p.v[11]=ACT.overhead; p.v[12]=k*0.9;
+  }
   if (C.phase==='focus' && C.t>1.15){ C.phase='fpv'; C.t=0; $('cine').className='fpv'; C.p.g.visible=false; cam.snap=true; }
   else if (C.phase==='fpv' && C.t>0.5) launchSpecial();
   else if (C.phase==='chase' && C.t>4) endCine();
@@ -2344,7 +2458,7 @@ function resetKickoff(kTeam){
     const s=sideOf(p.team); let [a,d]=FORM.ko[p.role];
     if (p.team===kTeam){ if (p.role==='pivo'){ a=0; d=0.488; } if (p.role==='alaL'){ a=-2.4; d=0.45; } }
     p.x=a*s; p.z=s*(HL-d*L); p.vx=p.vz=0; p.facing = s===1 ? Math.PI : 0;
-    p.wantSpeed=0; p.noTouch=0; p.stun=0; p.immune=0; p.feintT=0; p.lunge=0; p.kickT=0; p.dive.t=0; p.downT=0; p.reactT=null; p.holdTime=0; p.decT=0;
+    p.wantSpeed=0; p.noTouch=0; p.stun=0; p.immune=0; p.feintT=0; p.lunge=0; p.kickT=0; p.dive.t=0; p.downT=0; p.act=null; p.blown=0; p.by=0; p.reactT=null; p.holdTime=0; p.decT=0;
     p.lookX=0; p.lookZ=0; p.blown=0; p.by=0; p.g.visible=true;
   }
   Object.assign(ball,{ x:0,y:BALL_R,z:0,vx:0,vy:0,vz:0,special:false,owner:null,intended:null,intendedT:0,lastKick:null,shotT:0,inGoal:false });
@@ -2424,7 +2538,7 @@ function assignRoles(team,state){
 }
 function execRole(p,state){
   p.lookX=ball.x; p.lookZ=ball.z; p.sprint=false;
-  if (ball.intended===p && !ball.owner){ const ip=interceptPoint(p,p.speedSprint,1.4); steer(p,ip.x,ip.z,p.speedSprint,0.15); return; }
+  if (ball.intended===p && !ball.owner){ const ip=interceptPoint(p,p.speedSprint,1.55); steer(p,ip.x,ip.z,p.speedSprint,0.15); return; }
   const o=ball.owner;
   switch(p.role2){
     case 'press': if (o){ const gz=ownGoalZ(p.team); const dx=-o.x, dz=gz-o.z, d=hyp(dx,dz)||1; const dd=hyp(p.x-o.x,p.z-o.z); const off=dd>2.2?1.0:0.2;
@@ -2471,7 +2585,7 @@ function thinkOwner(p,dt){
 function thinkGK(g,dt){
   const s=sideOf(g.team), gz=s*HL;
   g.lookX=ball.x; g.lookZ=ball.z;
-  if (g.downT>0){ g.downT-=dt; g.wantSpeed=0; return; }
+  if (g.downT>0){ g.downT-=dt; g.wantSpeed=0; if (g.downT<=0) setAct(g, g.dive.side>0?'gkRiseL':'gkRiseR'); return; }
   if (ball.owner===g){
     g.wantSpeed=0; g.lookX=0; g.lookZ=0;
     if (g.holdTime>0.75){ const bt=bestPassTarget(g); if (bt.mate) doPass(g,bt.mate,true); else kickBall(g,rand(-3,3),4,-s*14,'pass'); }
@@ -2534,6 +2648,10 @@ function kickBall(p,vx,vy,vz,type){
   p.noTouch=0.3; p.kickT=0.25; p.holdTime=0;
   ball.lastTouch=p; ball.intended=null; ball.shotT=0;
   ball.lastKick={ by:p, team:p.team, type, x:ball.x, z:ball.z, t:G.simTime, dist:0, flag:false };
+  if (p.isGK) setAct(p, vy>=3.5 ? 'gkPunt' : hyp(vx,vz)>15 ? 'gkThrow' : 'gkRoll');
+  else if (type==='pass') setAct(p, vy>2.5 ? 'lob' : 'pass');
+  else if (type==='shot' && hyp(p.vx,p.vz)>3.5) setAct(p,'shotRun');
+  else p.act=null;
   AudioSys.S.kick(clamp(hyp(vx,vy,vz)/28,0,1));
 }
 const estT = (d,v) => { const k=1.15, r=1-d*k/v; return r<=0.05 ? 2 : -Math.log(r)/k; };
@@ -2558,7 +2676,7 @@ function doPass(p,m,fromGK){
   let lob=false;
   if (!fromGK && blk && bl<0.8 && d>4.5 && d<20){
     const g=grav(), f=clamp(((blk.x-ball.x)*dx+(blk.z-ball.z)*dz)/(d*d),0.05,0.95);
-    const T=Math.max(0.6, d/22, Math.sqrt(1.1/(0.5*g*f*(1-f))));   // y at the blocker = BALL_R + g/2*T^2*f(1-f) >= ~1.35
+    const T=Math.max(0.6, d/22, Math.sqrt(1.66/(0.5*g*f*(1-f))));   // y at the blocker = BALL_R + g/2*T^2*f(1-f) >= ~1.9 (well over a header)
     if (T<=1.2){ const hs=d/T*1.04; lob=true; kickBall(p, dx/d*hs, 0.5*g*T, dz/d*hs, 'pass'); }   // chip it over the defender onto the meeting point
   }
   if (!lob){
@@ -2620,12 +2738,22 @@ function tryFeint(p,ix,iz){
   }
   return true;
 }
+// AI defenders go to ground too now and then (a slide tackle on the carrier)
+function aiSlides(dt){
+  const o=ball.owner; if (!o || o.isGK || o.immune>0) return;
+  for (const q of teams[1-o.team].field){
+    if (q===G.human || q.lungeCool>0 || q.stun>0 || q.lunge>0 || q.blown>0) continue;
+    const dx=o.x-q.x, dz=o.z-q.z, d=hyp(dx,dz); if (d>1.6 || d<0.55) continue;
+    const rate = q.team===AWAY && G.mode==='match' ? G.diff.slide : 0.3;
+    if (Math.random()<rate*dt) tryLunge(q, dx+o.vx*0.15, dz+o.vz*0.15);
+  }
+}
 function tryLunge(p,ix,iz){
   if (p.lungeCool>0 || p.stun>0) return;
   let dx=ix, dz=iz;
   if (hyp(dx,dz)<0.2){ dx=ball.x-p.x; dz=ball.z-p.z; }
   const dl=hyp(dx,dz)||1; p.ldx=dx/dl; p.ldz=dz/dl;
-  p.lunge=0.24; p.lungeCool=0.9; p.lungeHit=false;
+  p.lunge=0.24; p.lungeCool=0.9; p.lungeHit=false; setAct(p,'slide');
   AudioSys.S.swoosh();
 }
 // how soon a defender gets into play: time to the ball (or goal-side of its carrier); being behind the ball costs extra
@@ -2665,8 +2793,10 @@ function take(p,how){
   ball.owner=p; ball.intended=null; ball.intendedT=0; ball.shotT=0; ball.vy=0; ball.perfect=false;
   p.holdTime=0; p.decT=0; p.receivedAt=G.simTime;
   p.recvByPass = !!(lk && lk.type==='pass' && lk.team===p.team && lk.by!==p && prev===lk.by);
+  if (p.isGK) setAct(p, ball.y>1.35 ? 'gkCatchHi' : (ball.y<0.45 && hyp(ball.vx,ball.vz)<9) ? 'gkScoop' : 'gkCatch');
+  else if (p.recvByPass && how==='trap') setAct(p,'trap');
   ball.lastTouch=p;
-  if (p.isGK){ p.immune=99; p.dive.t=0; }
+  if (p.isGK){ p.immune=99; p.dive.t=0; p.downT=0; }
   if (G.mode==='match'){
     onTake(p,prev,lk,how); if (p.team===HOME && !p.isGK) G.human=p;
     if (p.team===AWAY && G.combo>0) comboEnd(!!(lk && lk.type==='shot' && lk.team===HOME && G.simTime-lk.t<3));
@@ -2692,7 +2822,8 @@ function onTake(p,prev,lk,how){
   }
 }
 function doSteal(q,o,tackle){
-  o.stun=0.42; o.noTouch=0.6; o.feintT=0;
+  o.stun = tackle ? 1.0 : 0.42; o.noTouch=0.6; o.feintT=0;
+  if (tackle) setAct(o,'trip');
   if (G.human===o) G.charging=false;
   ball.owner=null; take(q,'steal'); AudioSys.S.tap();
   if (G.mode==='match'){
@@ -2723,6 +2854,7 @@ function lungeCheck(){
   }
 }
 function deflect(p){
+  if (p.isGK && p.dive.t<=0 && p.downT<=0) setAct(p,'gkBlock');
   { const lk=ball.lastKick; if (lk && lk.type==='pass' && !lk.counted && p.team!==lk.team){ lk.counted=true; G.pst.cut++; } } if (ball.lastKick && ball.lastKick.type==='shot' && ball.shotT>0) G.dbg.block++;
   const nx=ball.x-p.x, nz=ball.z-p.z, nl=hyp(nx,nz)||1, ux=nx/nl, uz=nz/nl, vn=ball.vx*ux+ball.vz*uz;
   if (vn<0){ ball.vx-=1.6*vn*ux; ball.vz-=1.6*vn*uz; }
@@ -2741,7 +2873,7 @@ function movePlayer(p,dt){
     p.blown-=dt; p.vx=p.vz=0;
     if (p.by>0 || p.bvy>0){ p.x+=p.bvx*dt; p.z+=p.bvz*dt; p.by+=p.bvy*dt; p.bvy-=22*dt; if (p.by<=0){ p.by=0; p.bvy=0; AudioSys.S.bounce(7); } }
     p.x=clamp(p.x,-HW+0.3,HW-0.3); p.z=clamp(p.z,-HL+0.3,HL-0.3);
-    if (p.blown<=0) p.by=0;
+    if (p.blown<=0){ p.by=0; setAct(p,'getup'); p.stun=Math.max(p.stun,0.6); }
     return;
   }
   if (p.feintT>0){ p.vx=p.fdx*9.5; p.vz=p.fdz*9.5; }
@@ -2855,6 +2987,26 @@ function gkSaves(){
     }
   }
 }
+function headers(){
+  const b=ball; if (b.owner || b.special || b.y<=1.05 || b.y>1.6) return;
+  const bsp=hyp(b.vx,b.vy,b.vz); if (bsp<4 || b.vy>0.3) return;   // only a dropping ball: no heading a chip on its way up
+  let best=null, bd=1e9;
+  for (const p of players){
+    if (p.isGK || p.noTouch>0 || p.stun>0 || p.blown>0 || b.intended===p) continue;   // the receiver waits and chests it down
+    if (b.lastKick && p.team===b.lastKick.team && (b.shotT>0 || b.intended!==p)) continue;   // leave your own team's ball to the man it's meant for
+    const mate=b.lastKick && b.lastKick.team===p.team, d=hyp(b.x-p.x,b.z-p.z);
+    if (d<(mate?0.48:0.36)+BALL_R && d<bd){ bd=d; best=p; }   // reading a ball meant for someone else is harder
+  }
+  if (!best) return;
+  const lk=b.lastKick, mine=lk && lk.team===best.team;
+  if (lk && lk.type==='pass' && !lk.counted && !mine){ lk.counted=true; G.pst.defl=(G.pst.defl||0)+1; }
+  {   // clear it: away from your goal, a little to the side
+    const gz=ownGoalZ(best.team), dz=-Math.sign(gz)||1, sx=(Math.random()-0.5)*0.9;
+    const l=Math.hypot(sx,1); b.vx=sx/l*8.5; b.vz=dz/l*8.5; b.vy=3.6; b.intended=null;
+  }
+  b.lastTouch=best; b.shotT=0; best.noTouch=0.3; setAct(best,'header'); AudioSys.S.tap();
+  if (G.mode==='match' && best.team===HOME){ addLikes(80,best,'ヘディング'); addBuzz(3); comboAdd(1); }
+}
 function pickups(){
   const b=ball, bsp=hyp(b.vx,b.vy,b.vz);
   let best=null, bd=1e9;
@@ -2862,7 +3014,7 @@ function pickups(){
     if (p.noTouch>0 || p.stun>0 || p.downT>0) continue;
     if (b.shotT>0 && b.lastKick && p.team===b.lastKick.team && bsp>8) continue;
     if (p.isGK && b.vz*sideOf(p.team)>6) continue;
-    if (b.y>(p.isGK?2.1:b.intended===p?1.5:1.05)) continue;
+    if (b.y>(p.isGK?2.1:b.intended===p?1.65:1.05)) continue;   // the man it's meant for can chest/head it down
     const shotBall = b.shotT>0 && bsp>11 && !p.isGK;
     const fastPass = !p.isGK && b.lastKick && b.lastKick.type==='pass' && p.team!==b.lastKick.team && bsp>9;
     const reach=(p.isGK?0.85:shotBall?0.36:b.intended===p?0.85:p.lunge>0?0.8:fastPass?(p===G.human?0.55:0.42):0.6)+(G.ballScale-1)*0.22, d=hyp(b.x-p.x,b.z-p.z);
@@ -2882,7 +3034,7 @@ function pickups(){
 function scored(s){
   ball.inGoal=true;
   const team = s===1 ? AWAY : HOME;
-  G.score[team]++; G.goalTeam=team; G.phase='goal'; G.phaseT=0; G.goalFrame=rec.count;
+  G.score[team]++; G.goalTeam=team; G.phase='goal'; G.phaseT=0; G.stateAt=G.simTime; G.goalFrame=rec.count;
   nets[s].bulge=1; G.shake=0.5;
   AudioSys.S.net(); AudioSys.S.whistle(1);
   goalFx(s,team);
@@ -3090,7 +3242,7 @@ function humanFrame(rdt){
   const owns=ball.owner===h, dash=IN.dashHeld, fev=1;
   const base = owns ? (dash?7.3:5.7) : (dash?8.2:6.3);
   const o=ball.owner;
-  if (!owns && !o && ball.intended===h){ const ip=interceptPoint(h,7.6,1.4); steer(h,ip.x,ip.z,7.6,0.12); }        // a pass is coming: go meet it
+  if (!owns && !o && ball.intended===h){ const ip=interceptPoint(h,7.6,1.55); steer(h,ip.x,ip.z,7.6,0.12); }        // a pass is coming: go meet it
   else if (ml>0.08){ h.wantX=mx/ml; h.wantZ=mz/ml; h.wantSpeed=base*Math.min(1,ml*1.15)*fev*(G.charging?0.7:1); }
   else if (o && o.team===AWAY){ const gz=ownGoalZ(HOME), dx=-o.x, dz=gz-o.z, d=hyp(dx,dz)||1, dd=hyp(h.x-o.x,h.z-o.z);   // idle stick on defence: press goal-side
     steer(h, o.x+dx/d*(dd>2?0.9:0.25)+o.vx*0.18, o.z+dz/d*(dd>2?0.9:0.25)+o.vz*0.18, dd>3.5?7.4:6.2, 0.3); }
@@ -3130,6 +3282,29 @@ function computeVis(p,dt){
   }
   if (p.blown>0){ y=p.by; tx = p.by>0 ? (1.6-p.blown)*p.spin : 1.45; tz=0; arms=1; }
   v[0]=p.x; v[1]=p.z; v[2]=p.facing; v[3]=p.ph; v[4]=clamp(sp/6.5,0,1.15); v[5]=tz; v[6]=tx; v[7]=y; v[8]=Math.max(0,p.kickT); v[9]=arms;
+  // which way the player moves relative to where they face (+ = their left), for the 8-way jog
+  if (sp>0.3){ const f=p.facing; v[10]=Math.atan2(p.vx*Math.cos(f)-p.vz*Math.sin(f), p.vx*Math.sin(f)+p.vz*Math.cos(f)); }
+  const [aid,at]=actionOf(p); v[11]=aid; v[12]=at;
+}
+function actionOf(p){
+  if (p.blown>0) return p.by>0.05 ? [ACT.blown, clamp((1.7-p.blown)/1.1,0,1)*0.65] : [ACT.fallen, G.simTime];
+  if (G.phase==='goal' || G.phase==='end'){
+    const win = G.phase==='goal' ? p.team===G.goalTeam : G.score[p.team]>G.score[1-p.team], lose = G.phase==='goal' ? !win : G.score[p.team]<G.score[1-p.team];
+    const tt=G.simTime-(G.stateAt||0);
+    if (win) return p.isGK ? [ACT.gkDirect, tt] : [ACT.celebrate, tt+p.id*0.37];
+    if (lose) return p.isGK ? [ACT.gkMiss, tt] : [ACT.dismay, tt];
+  }
+  if (p.isGK && (p.dive.t>0 || p.downT>0)) return [p.dive.side>0?ACT.gkDiveL:ACT.gkDiveR, p.dive.t>0 ? p.dive.dur-p.dive.t : p.dive.dur+(0.35-p.downT)];
+  if (p.act) return [p.act.id, p.act.t];
+  if (p.isGK && ball.owner===p) return [ACT.gkHold, 0];
+  if (p.isGK && hyp(p.vx,p.vz)<0.4 && ball.owner && ball.owner.team===p.team && !ball.owner.isGK && Math.abs(ball.z-ownGoalZ(p.team))>HL) return [ACT.gkDirect, G.simTime];
+  return [0,0];
+}
+function tickAct(p,dt){
+  const a=p.act; if (!a) return;
+  a.t+=dt; const d=ACTS[a.id];
+  if (d.n==='gkHold' && ball.owner!==p){ p.act=null; return; }
+  if (!d.loop && !d.hold && a.t>=actLen(d)){ p.act=null; if (d.next) setAct(p,d.next); }
 }
 function applyPose(p,v){
   const g=p.g, ph=v[3], amp=v[4], sw=Math.sin(ph)*amp*0.95;
@@ -3142,7 +3317,10 @@ function applyPose(p,v){
   p.disc.position.set(v[0],0.025,v[1]);
   if (p.skinObj && p.skinObj.visible){
     const R=p.skinObj.userData.rig;
-    if (R){ if (R.own) poseOwn(R,v); else poseRig(R,v); p.skinObj.rotation.set(amp*0.08, 0, Math.sin(ph)*0.03*amp); }
+    if (R){ if (R.own) poseOwn(R,v); else poseRig(R,v); p.skinObj.rotation.set(amp*0.08, 0, Math.sin(ph)*0.03*amp);
+      if (ANIM && R.root){   // the clip already leans, dives and lies down: keep only the facing (and the blast spin in the air)
+        const blownAir=(v[11]|0)===ACT.blown; g.rotation.set(blownAir?v[6]:0, v[2], 0); g.position.y = blownAir ? v[7] : 0;
+        p.skinObj.rotation.set(0,0,0); p.skinObj.position.y=0; return; } }
     else { const kick = v[8]>0 ? Math.sin(Math.PI*(1-v[8]/0.25)) : 0; p.skinObj.rotation.set(amp*0.16-kick*0.22, 0, Math.sin(ph)*0.08*amp); }
     p.skinObj.position.y = up*0.15;
   }
@@ -3158,7 +3336,7 @@ let stepParity=0;
 function step(dt){
   G.simTime+=dt;
   for (const p of players){
-    p.noTouch-=dt; p.stun-=dt; p.feintCool-=dt; p.lungeCool-=dt; p.kickT-=dt;
+    p.noTouch-=dt; p.stun-=dt; p.feintCool-=dt; p.lungeCool-=dt; p.kickT-=dt; tickAct(p,dt);
     if (!(p.isGK && ball.owner===p)) p.immune-=dt;
     if (p.feintT>0) p.feintT-=dt;
     if (p.lunge>0){ p.lunge-=dt; if (p.lunge<=0 && ball.owner!==p) p.stun=Math.max(p.stun,0.28); }
@@ -3178,7 +3356,7 @@ function step(dt){
   for (const p of players) movePlayer(p,dt);
   separate();
   updateBall(dt);
-  if (playing){ stealCheck(dt); lungeCheck(); }
+  if (playing){ headers(); aiSlides(dt); stealCheck(dt); lungeCheck(); }
   if (G.mode==='match') extrasStep(dt);
   for (const p of players) computeVis(p,dt);
   for (const e of extras) extraVis(e);
@@ -3190,7 +3368,9 @@ function replayPose(f){
   vball.set(lerp(b[o0],b[o1],t), lerp(b[o0+1],b[o1+1],t), lerp(b[o0+2],b[o1+2],t));
   for (let i=0;i<10;i++){
     const a=o0+3+i*P_VIS, c=o1+3+i*P_VIS;
-    for (let k=0;k<P_VIS;k++) _tmpV[k] = k===2 ? b[a+k]+angDiff(b[c+k],b[a+k])*t : lerp(b[a+k],b[c+k],t);
+    for (let k=0;k<P_VIS;k++) _tmpV[k] = (k===2||k===10) ? b[a+k]+angDiff(b[c+k],b[a+k])*t
+      : (k===11||k===13) ? (t<0.5?b[a+k]:b[c+k])
+      : k===12 ? (b[a+11]===b[c+11] ? lerp(b[a+k],b[c+k],t) : (t<0.5?b[a+k]:b[c+k])) : lerp(b[a+k],b[c+k],t);
     applyPose(players[i],_tmpV);
   }
   for (let i=0;i<NX;i++){
@@ -3356,6 +3536,7 @@ function updateCamera(rdt){
 const _axis=new THREE.Vector3(), _bq=new THREE.Quaternion(), _proj=new THREE.Vector3();
 let trailSpeed=0;
 function render(rdt){
+  G.frameDt=rdt;
   if (G.phase==='replay' && G.rp) replayPose(G.rp.f);
   else { for (const p of players) applyPose(p,p.v); for (const e of extras) poseExtra(e,e.v); vball.set(ball.x,ball.y,ball.z); }
   // ball spin + trail
@@ -3574,7 +3755,7 @@ window.__buzzkick = {
     const out={ goals:sc, shots:G.shotCount.slice(), pass:Object.assign({},G.pst) }; G.pst={tries:0,ok:0,cut:0}; G.dbg={shots:0,gk:0,over:0,wide:0,block:0,post:0,spd:0,dist:0};
     G.mode=prevMode; applyParams(); resetKickoff(HOME); return out;
   },
-  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say, renderer, scene, perf, camera, bubbles, skinProtos, skinStates, SKIN_DEFS, loadSkin, applyPose, SV, applyCosmetics }),
+  peek:f=>f({ G, ball, teams, HOME, AWAY, ownGoalZ, hyp, banner, toast, addBuzz, comboAdd, addLikes, popAt, say, renderer, scene, perf, camera, bubbles, skinProtos, skinStates, SKIN_DEFS, loadSkin, applyPose, SV, applyCosmetics, setAct, tryLunge, blastPlayer }),
   state:()=>({ mode:G.mode, phase:G.phase, clock:G.clock, score:G.score.slice(), likes:G.likes, human:G.human&&G.human.role }),
   start:startMatch,
   debugGoal(team=HOME){ const s=team===HOME?-1:1; ball.owner=null; ball.inGoal=false; Object.assign(ball,{x:0.4,y:0.5,z:s*(HL-3),vx:0,vy:1,vz:s*18}); ball.lastKick={by:teams[team].field[3],team,type:'shot',x:0,z:s*(HL-14),t:G.simTime,dist:14,flag:false}; teams[1-team].gk.x=-1.4; },
