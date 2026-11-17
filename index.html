@@ -229,6 +229,8 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .controls{display:grid;grid-template-columns:auto 1fr;gap:9px 14px;margin:0;font:500 13px/1.45 var(--body);color:var(--dim);align-items:center}
 .controls dt{display:flex;gap:2px;flex-wrap:wrap}
 .controls dd{margin:0;color:var(--paper)}
+.vtest{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.vstat{margin:0;font:700 12px/1.5 var(--body);color:var(--dim)}
 .tips{margin:0;padding:12px 0 0;list-style:none;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line)}
 .tips li{display:grid;grid-template-columns:5.6em 1fr;gap:12px;font:500 13px/1.5 var(--body)}
 .tips b{font:400 13px/1.5 var(--display);color:var(--lemon);letter-spacing:.04em}
@@ -618,6 +620,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
         <dt><kbd>ダッシュ</kbd></dt><dd>相手の目の前で押すとフェイント</dd>
         <dt><kbd>必殺</kbd></dt><dd>光っているときに押すと必殺シュート</dd>
       </dl>
+      <div class="vtest"><button class="btn ghost" id="voiceBtnH">ボイスを試す</button><p class="vstat" id="voiceStatH">乱入した観客と警察がしゃべります</p></div>
       <ul class="tips">
         <li><b>BUZZ</b><span>神プレーで溜まる。Lvごとに足とシュートが強化。MAXでルーレットが回り、観客が乱入する</span></li>
         <li><b>コンボ</b><span>相手に取られる前にプレーをつなぐほど、いいねの倍率が上がる</span></li>
@@ -636,6 +639,8 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
         <button class="btn" id="resumeBtn">再開する</button>
         <button class="btn alt" id="helpBtnP">遊び方</button>
         <button class="btn ghost" id="soundBtnP">サウンド: ON</button>
+        <button class="btn ghost" id="voiceBtnP">ボイスを試す</button>
+        <p class="vstat" id="voiceStatP" hidden></p>
         <button class="btn ghost" id="quitBtn">タイトルへ</button>
       </div>
     </div>
@@ -968,11 +973,20 @@ const VOICE_LINES={
 };
 const Voice=(()=>{
   const can=('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
-  let ja=null, last=0;
-  const pickV=()=>{ try { const vs=speechSynthesis.getVoices(); ja=vs.find(v=>/^ja/i.test(v.lang))||null; } catch(e){ ja=null; } };
+  let ja=null, last=0, unlocked=false;
+  const pickV=()=>{ try { const vs=speechSynthesis.getVoices().filter(v=>/^ja/i.test(v.lang)); ja=vs.find(v=>v.localService)||vs[0]||null; } catch(e){ ja=null; } };
   if (can){ pickV(); try { speechSynthesis.addEventListener('voiceschanged',pickV); } catch(e){} }
   const ROLE={ fan:{ pitch:1.6, rate:1.2 }, police:{ pitch:0.65, rate:1.05 } };
   return {
+    // call from a tap/click handler: plays a silent utterance so later speech is allowed
+    unlock(){ if (!can || unlocked) return; try { pickV(); const u=new SpeechSynthesisUtterance(' '); u.volume=0; if (ja) u.voice=ja; speechSynthesis.speak(u); unlocked=true; } catch(e){} },
+    status(){ if (!can) return 'この環境は読み上げ非対応のため、合成の掛け声で代用します'; pickV(); return ja ? `日本語音声「${ja.name}」で読み上げます` : '日本語音声が見つからないため、合成の掛け声で代用します'; },
+    test(){
+      this.unlock(); AudioSys.init(); AudioSys.resume();
+      const lines=[['推しに会いに来たー！','fan'],['そこの人、止まりなさい！','police']];
+      if (can && ja){ try { speechSynthesis.cancel(); for (const [t,r] of lines){ const u=new SpeechSynthesisUtterance(t), q=ROLE[r]; u.voice=ja; u.lang=ja.lang; u.pitch=q.pitch; u.rate=q.rate; u.volume=1; speechSynthesis.speak(u); } return; } catch(e){} }
+      AudioSys.S.shout('fan'); setTimeout(()=>AudioSys.S.shout('police'),1000);
+    },
     say(kind,role,force){
       if (!AudioSys.on || G.mode!=='match' || G.paused) return;
       const now=performance.now(); if (!force && now-last<1200) return; last=now;
@@ -2933,7 +2947,7 @@ function resultText(){
   return `BUZZ KICK!!（${G.diff.label}）で ${G.awayName} に ${h}-${a} ${h>a?'勝利':h<a?'敗北':'引き分け'}｜いいね ${fmt(G.likes)}｜最大同接 ${fmt(G.peak)}人${G.stats.invaders?`｜乱入 ${G.stats.invaders}人（連行 ${G.stats.caught}人）`:''}｜評価「${rankOf(G.likes)}」 #バズキック #屋上フットサル`;
 }
 function startMatch(key){
-  AudioSys.init(); AudioSys.resume(); AudioSys.startMusic();
+  AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); Voice.unlock();
   G.mode='match'; G.diff=DIFFS[key]; applyParams();
   G.score=[0,0]; G.clock=MATCH_TIME; G.buzz=0; G.fever=0; G.likes=0; G.hype=0; G.peak=87; G.viewers=87; G.said10=false; G.resultShown=false; G.paused=false;
   G.stats={goals:0,feints:0,onetouch:0,longest:0,steals:0,shots:0,invaders:0,caught:0,perfects:0,specials:0,blasts:0};
@@ -3152,7 +3166,7 @@ $('againBtn').addEventListener('click',()=>startMatch(G.diff.key));
 $('toTitleBtn').addEventListener('click',toTitle);
 $('pauseBtn').addEventListener('click',()=>setPaused(true));
 function syncSoundUI(){ const v=AudioSys.on; $('soundBtn').textContent=$('soundBtnP').textContent='サウンド: '+(v?'ON':'OFF'); const m=$('muteBtn'); m.classList.toggle('off',!v); m.setAttribute('aria-label',v?'音を消す':'音を出す'); m.setAttribute('aria-pressed',String(!v)); }
-function toggleSound(){ AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); AudioSys.setOn(!AudioSys.on); if (!AudioSys.on) Voice.stop(); syncSoundUI(); store('buzzkick.sound',AudioSys.on?'1':'0'); }
+function toggleSound(){ AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); Voice.unlock(); AudioSys.setOn(!AudioSys.on); if (!AudioSys.on) Voice.stop(); syncSoundUI(); store('buzzkick.sound',AudioSys.on?'1':'0'); }
 $('muteBtn').addEventListener('click',toggleSound);
 // any tap or key resumes audio that the OS suspended (app switch, call, lock screen)
 ['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ if (AudioSys.started) AudioSys.resume(); },true));
@@ -3160,6 +3174,10 @@ $('resumeBtn').addEventListener('click',()=>setPaused(false));
 $('quitBtn').addEventListener('click',toTitle);
 $('soundBtn').addEventListener('click',toggleSound);
 $('soundBtnP').addEventListener('click',toggleSound);
+for (const [b,st] of [['voiceBtnP','voiceStatP'],['voiceBtnH','voiceStatH']]) $(b).addEventListener('click',()=>{
+  if (!AudioSys.on){ $(st).hidden=false; $(st).textContent='サウンドがOFFです。ONにしてから試してください'; return; }
+  Voice.test(); $(st).hidden=false; $(st).textContent=Voice.status();
+});
 let helpReturn=null;
 function openHelp(from){ helpReturn=from||null; $('help').hidden=false; $('helpClose').focus({preventScroll:true}); }
 function closeHelp(){ $('help').hidden=true; if (helpReturn) helpReturn.focus({preventScroll:true}); }
@@ -3220,6 +3238,7 @@ window.__buzzkick = {
   skin:()=>({ motion:motionState, state:skinStates[SV.eq.skin]||'none', shown:teams[HOME].field.filter(p=>p.skinObj&&p.skinObj.visible).length }),
   freeze(){ G.paused=true; },
   testPose(k,amp,ph){ for (const p of teams[HOME].field){ p.v[8]=k; p.v[4]=amp; p.v[3]=ph; } },
+  voiceStatus:()=>Voice.status(),
   ownAll(ids){ ids.forEach(id=>SV.own[id]=1); },
   setLrPity(n){ SV.lrPity=n; updateProfileUI(); },
   save:()=>JSON.parse(JSON.stringify(SV)),
