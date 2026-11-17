@@ -362,6 +362,9 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .chip.r-r{--rc:#5ab8ff;border-color:#5ab8ff} .chip.r-sr{--rc:#c77dff;border-color:#c77dff} .chip.r-ssr{--rc:#ffd23f;border-color:#ffd23f} .chip.r-ur{--rc:#ff4fa3;border-color:#ff4fa3}
 .chip.r-lr{--rc:#ffd23f;border-color:#ffd23f;background:linear-gradient(90deg,rgba(255,210,63,.2),rgba(255,79,163,.2))}
 .chip.on{background:var(--lemon);color:var(--ink);border-color:var(--lemon)}
+.chip.dbg{border-style:dashed}
+.dbgbtn{pointer-events:auto;cursor:pointer;font:900 11px/1 var(--body);padding:6px 10px;border-radius:999px;border:1.5px dashed var(--line2);background:transparent;color:var(--dim)}
+.dbgbtn[aria-pressed="true"]{border-color:var(--live);color:#fff;background:rgba(255,49,88,.25)}
 .chip.lock{opacity:.35;cursor:default}
 
 /* ---------- stream intro (fictional BUZZ LIVE site) ---------- */
@@ -721,7 +724,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
       </div>
       <div class="gpity" id="gPity">SSR以上確定まで あと30回</div>
       <div class="actions"><button class="btn" id="gPull">1回引く</button><button class="btn alt" id="gClose">閉じる</button></div>
-      <div class="coll"><div class="collh"><span>コレクション（タップで装備）</span><span id="gDex">図鑑 4 / 25</span></div><div id="gColl"></div></div>
+      <div class="coll"><div class="collh"><span>コレクション（タップで装備）</span><span id="gDex">図鑑 4 / 25</span><button type="button" class="dbgbtn" id="gDebug" aria-pressed="false">デバッグ解放: OFF</button></div><div id="gColl"></div></div>
     </div>
   </div>
 </div>
@@ -1733,6 +1736,16 @@ function spinRoulette(){
 }
 
 // gacha
+// DEBUG: lets every item be equipped for testing without touching what the save really owns.
+// Default is ON in this build so new skins can be tried right away — set DEBUG_UNLOCK_DEFAULT to false before release.
+const DEBUG_UNLOCK_DEFAULT=true;
+let debugAll = (store('buzzkick.debugAll') ?? (DEBUG_UNLOCK_DEFAULT?'1':'0'))==='1';
+const canEquip = it => !!(it.def || SV.own[it.id] || debugAll);
+function setDebugAll(on){
+  debugAll=on; store('buzzkick.debugAll', on?'1':'0');
+  if (!on) for (const cat of Object.keys(SV.eq)){ const it=itemById(SV.eq[cat]); if (!it || !(it.def||SV.own[it.id])) SV.eq[cat]=(ITEMS.find(q=>q.cat===cat && q.def)||{}).id; }   // take off anything borrowed
+  saveSave(); applyCosmetics(); renderColl(); updateProfileUI();
+}
 const unownedURSkins=()=>ITEMS.filter(q=>q.cat==='skin' && q.r==='UR' && q.id!==PICKUP && !SV.own[q.id]);
 function rollGacha(){
   SV.pulls++; SV.pity++; SV.lrPity=(SV.lrPity||0)+1;
@@ -1768,14 +1781,15 @@ function renderColl(){
   const box=$('gColl'); box.innerHTML='';
   const owned=ITEMS.filter(it=>it.def||SV.own[it.id]).length;
   $('gDex').textContent=`図鑑 ${owned} / ${ITEMS.length}`;
+  const db=$('gDebug'); db.textContent='デバッグ解放: '+(debugAll?'ON':'OFF'); db.setAttribute('aria-pressed',String(debugAll));
   for (const cat of ['skin','ball','trail','goal','title']){
     const row=document.createElement('div'); row.className='crow';
     const lab=document.createElement('span'); lab.className='clab'; lab.textContent=CAT_LABEL[cat]; row.appendChild(lab);
     const chips=document.createElement('div'); chips.className='chips';
     for (const it of ITEMS.filter(i=>i.cat===cat)){
-      const have=it.def||SV.own[it.id], on=SV.eq[cat]===it.id;
+      const have=canEquip(it), on=SV.eq[cat]===it.id, borrowed=have && !(it.def||SV.own[it.id]);
       const b=document.createElement('button'); b.type='button';
-      b.className='chip r-'+it.r.toLowerCase()+(on?' on':'')+(have?'':' lock');
+      b.className='chip r-'+it.r.toLowerCase()+(on?' on':'')+(have?'':' lock')+(borrowed?' dbg':'');
       b.textContent = have ? it.name : '？？？'; b.disabled=!have; b.setAttribute('aria-pressed',String(on));
       if (have) b.addEventListener('click',()=>{ SV.eq[cat]=it.id; saveSave(); applyCosmetics(); renderColl(); AudioSys.S.pop(); });
       chips.appendChild(b);
@@ -3371,6 +3385,7 @@ $('startYuru').addEventListener('click',()=>startMatch('yuru'));
 $('gachaBtnT').addEventListener('click',openGacha);
 $('gachaBtnR').addEventListener('click',openGacha);
 $('gPull').addEventListener('click',pullGacha);
+$('gDebug').addEventListener('click',()=>setDebugAll(!debugAll));
 $('gClose').addEventListener('click',closeGacha);
 $('startGachi').addEventListener('click',()=>startMatch('gachi'));
 $('againBtn').addEventListener('click',()=>startMatch(G.diff.key));
