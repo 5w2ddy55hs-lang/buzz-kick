@@ -1854,7 +1854,6 @@ const SKIN_DEFS={
   s_pro_mint: { base:'s_pro', halo:0x3ff5d0, tint:{ 'Micah | top':0x3ff5d0, 'Micah | bottom':0x1d1a4d } },
   s_pro_gold: { base:'s_pro', halo:0xffd23f, tint:{ 'Micah | top':0xf1c232, 'Micah | bottom':0x15131f } },
   s_gk0: { base:'s_pro', gk:true, noHalo:true, tint:{ 'Micah | top':LEMON,    'Micah | bottom':0x1d1a4d } },
-  s_gk1: { base:'s_pro', gk:true, noHalo:true, tint:{ 'Micah | top':0x9b7bff, 'Micah | bottom':0x2a1f5c } },
   s_lr: { url:'assets/skin-lr.json',  h:1.8,  halo:0xff4fa3, rainbow:true },   // third-party scan: shipped with the private build only
   // rigged + animated third-party models (private build only): they use their own clip
   s_ur_sophia:{ url:'assets/skin-rp-sophia.json', h:1.78, halo:0x3ff5d0, own:'idle',  t0:0.5 },
@@ -2317,16 +2316,21 @@ function applySkins(){
     p.skinObj = use ? p.skinObjs[id] : null;
     p.body.visible=!use;
   }
-  for (const t of [HOME,AWAY]){   // keepers: always the 3D model once it has loaded
-    const g=teams[t].gk, gid='s_gk'+t;
-    if (!skinProtos[gid]){ loadSkin(gid); continue; }
-    g.skinObjs=g.skinObjs||{};
-    if (!g.skinObjs[gid]){ g.skinObjs[gid]=makeSkinInstance(gid); g.g.add(g.skinObjs[gid]); }
-    g.skinObj=g.skinObjs[gid]; g.skinObj.visible=true; g.body.visible=false;
+  // keepers wear what the team wears: our keeper follows the equipped skin (the pro family in keeper colours,
+  // the scans as they are); the opponents' keeper stays a chibi like the rest of their side
+  for (const t of [HOME,AWAY]){
+    const g=teams[t].gk; g.skinObjs=g.skinObjs||{};
+    const gid = t!==HOME || !def ? null : (id==='s_pro' || def.base==='s_pro') ? 's_gk0' : id;
+    if (gid && !skinProtos[gid]) loadSkin(gid);   // may finish right away (recolouring a loaded model)
+    const ready = !!(gid && skinProtos[gid]);
+    if (ready && !g.skinObjs[gid]){ const o=makeSkinInstance(gid); if (o.userData.rig) o.userData.rig.gk=true; g.skinObjs[gid]=o; g.g.add(o); }
+    for (const k in g.skinObjs) g.skinObjs[k].visible = ready && k===gid;
+    g.skinObj = ready ? g.skinObjs[gid] : null;
+    g.body.visible = !ready;
   }
 }
 function poseOwn(R,v){
-  if (ANIM && motion && R.pr && (v[4]>0.1 || (v[11]|0) || v[8]>0) && ownMocap(R,v)) return;
+  if (ANIM && motion && R.pr && (R.gk || v[4]>0.1 || (v[11]|0) || v[8]>0) && ownMocap(R,v)) return;
   const amp=v[4], ph=v[3], kick=v[8], moving=amp>0.08, span=Math.max(0.1,R.dur-R.t0);
   let t;
   if (kick>0) t = R.own==='walk' ? R.idleT : R.t0;            // kick from the reference stance
