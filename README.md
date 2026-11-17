@@ -2,7 +2,8 @@
 
 夜の屋上で遊ぶ、1試合90秒の3Dフットサル。プレーに合わせて配信風のコメント・いいね・同接が反応する。
 
-- `index.html` 1枚で完結（three.js r128 を cdnjs から読み込み）
+- `index.html` が本体（three.js r128 を cdnjs、GLTFLoader を jsDelivr から読み込み）
+- `assets/skin-pro.json` はガチャの選手スキン用モデル（`assets/src/skin-pro.glb` を base64 にしたもの）。ローカルで開くときは `file://` ではなく簡易サーバー（例: `python3 -m http.server`）経由で開くとスキンも読み込める
 - ブラウザで開くだけで遊べる。GitHub Pages にもそのまま置ける
 
 ## 操作
@@ -11,3 +12,7 @@
 
 ## 主な要素
 BUZZレベルで能力アップ / MAXでBUZZルーレットと観客・警察の乱入 / コンボ / PERFECTシュート / 切り抜きリプレイ / XP・レベル・ガチャ（保存はブラウザ内）
+
+## クレジット
+- スキンのモーション: Mixamo の X Bot の骨格とキックモーション（`assets/motion-xbot.json`、メッシュは除去）。静止モデルのスキンは読み込み時にこの骨格へ自動でリギングし、キックはこのモーション、走りは同じ骨格の脚をプログラムで動かしている
+- 選手スキンのモデル: Innerscene Corp（innerscene.com）作、CC0 1.0（パブリックドメイン）。ゲーム用にポリゴン数とテクスチャを軽量化し、付属のボールを除いて使用
