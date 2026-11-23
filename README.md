@@ -1,6 +1,6 @@
 # BUZZ KICK!!
 
-夜の屋上で遊ぶ、1試合90秒の3Dフットサル。プレーに合わせて配信風のコメント・いいね・同接が反応する。
+夜の屋上で遊ぶ、1試合60秒の3Dフットサル。プレーに合わせて配信風のコメント・いいね・同接が反応する。
 
 - `index.html` が本体（three.js r128 を cdnjs、GLTFLoader を jsDelivr から読み込み）
 - `assets/skin-pro.json` はガチャの選手スキン用モデル（`assets/src/skin-pro.glb` を base64 にしたもの）。ローカルで開くときは `file://` ではなく簡易サーバー（例: `python3 -m http.server`）経由で開くとスキンも読み込める
