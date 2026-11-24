@@ -270,6 +270,27 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .rank b.stamp{animation:stamp .5s cubic-bezier(.2,1.4,.4,1) both}
 .newbest{font:900 12px/1 var(--body);color:var(--ink);background:var(--mint);padding:6px 12px;border-radius:999px}
 .rstats{display:flex;flex-direction:column;gap:12px;min-width:0}
+.rtl{display:flex;align-items:center;gap:10px;min-width:0}
+.endpill{flex:none;white-space:nowrap;font:900 11px/1 var(--body);letter-spacing:.12em;color:#fff;background:#3a3358;padding:6px 9px;border-radius:5px}
+.final .tm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slh b{white-space:nowrap}
+@media (max-width:420px){ .rhead h2{font-size:18px} .reel{width:38px;height:46px} .reel span{font-size:22px} .slot{gap:8px;padding:9px 10px} .kpi b{font-size:20px} }
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-block:1px solid var(--line)}
+.kpi{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 4px;min-width:0}
+.kpi+.kpi{border-left:1px solid var(--line)}
+.kpi small{font:700 11px/1 var(--body);color:var(--dim);letter-spacing:.08em}
+.kpi b{font:400 clamp(20px,4.4vw,28px)/1 var(--display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi b .endv{display:none}
+.kpi.like b{color:var(--lemon)} .kpi.sub b{color:var(--mint)} .kpi.sub.neg b{color:var(--live)}
+.vgraph{margin:0;display:flex;flex-direction:column;gap:4px}
+.vgraph figcaption{display:flex;justify-content:space-between;align-items:center;gap:8px;font:700 11px/1 var(--body);color:var(--dim);letter-spacing:.06em}
+.vleg{display:flex;align-items:center;gap:4px;letter-spacing:0} .vleg i{width:7px;height:7px;border-radius:50%;margin-left:6px} .vleg .g{background:var(--mint)} .vleg .c{background:var(--pink)} .vleg .v{background:var(--lemon)}
+#rGraph{display:block;width:100%;height:84px;background:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px) 0 0/100% 21px;border-bottom:1px solid var(--line)}
+.vax{display:flex;justify-content:space-between;font:700 10px/1 var(--body);color:var(--dim);font-variant-numeric:tabular-nums}
+.rdet summary{cursor:pointer;font:900 12px/1 var(--body);letter-spacing:.12em;color:var(--dim);padding:6px 0;list-style-position:inside}
+.rdl{margin:4px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px}
+.rdl div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);min-width:0}
+.rdl dt{font:700 12px/1.2 var(--body);color:var(--dim)} .rdl dd{margin:0;font:400 15px/1 var(--display);font-variant-numeric:tabular-nums;white-space:nowrap}
 .sgroup h3{margin:0 0 6px;font:900 11px/1 var(--body);letter-spacing:.16em;color:var(--dim)}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:6px}
 .stat{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:var(--r-s);padding:8px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -330,7 +351,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .tix{font:900 13px/1 var(--body);background:var(--ink);padding:7px 11px;border-radius:999px;border:1px solid var(--line)}
 .tix b{color:var(--lemon);font-size:16px}
 .gstage{position:relative;height:300px;display:grid;place-items:center;overflow:hidden;border-radius:var(--r);background:radial-gradient(circle at 50% 55%,#2c1a6b,#0f0828 72%)}
-.gstage .rays{position:absolute;inset:-60%;opacity:0;background:repeating-conic-gradient(from 0deg,transparent 0deg 10deg,var(--ray,rgba(255,255,255,.18)) 10deg 20deg);animation:spin 7s linear infinite;transition:opacity .3s}
+.gstage .rays{position:absolute;inset:-60%;opacity:0;background:repeating-conic-gradient(from 0deg,transparent 0deg 10deg,var(--ray,rgba(255,255,255,.18)) 10deg 20deg);animation:spinOut 4.8s cubic-bezier(.2,.6,.3,1) both;transition:opacity .3s}
 .gstage[class*="r-"] .rays{opacity:1}
 .gstage.r-r{--ray:rgba(90,184,255,.32)} .gstage.r-sr{--ray:rgba(199,125,255,.4)} .gstage.r-ssr{--ray:rgba(255,210,63,.55)}
 .gstage.r-ur .rays{background:repeating-conic-gradient(rgba(255,79,163,.5) 0deg 10deg,rgba(255,233,77,.5) 10deg 20deg,rgba(63,245,208,.5) 20deg 30deg,rgba(143,123,255,.5) 30deg 40deg);animation-duration:2.5s}
@@ -685,6 +706,10 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 @keyframes shake{0%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}100%{transform:rotate(-8deg)}}
 @keyframes capOpen{to{transform:scale(1.8);opacity:0}}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes spinOut{to{transform:rotate(220deg)}}
+/* decorative loops end within about 5 seconds */
+.btn.gacha.can10{animation-iteration-count:3!important} .pv-sphere{animation-iteration-count:2!important} .pv-bgm i{animation-iteration-count:10!important} .lgs.today{animation-iteration-count:6!important}
+.pillar.t4{animation-iteration-count:4!important} .rar.r-ur,.rar.r-lr,.gc.r-ur .gr,.gc.r-lr .gr,.gconf.rb{animation-iteration-count:8!important} #title .livepill i{animation-iteration-count:5}
 @keyframes hue{to{filter:hue-rotate(360deg)}}
 @keyframes revealIn{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes blink{50%{opacity:.25}}
@@ -931,11 +956,19 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 
   <div class="overlay modal" id="result" hidden>
     <div class="card rcard">
-      <div class="rhead"><h2>配信おつかれさま</h2><span class="wl" id="rWL">WIN</span></div>
+      <div class="rhead"><div class="rtl"><span class="endpill">配信終了</span><h2>配信おつかれさま</h2></div><span class="wl" id="rWL">WIN</span></div>
       <div class="rgrid">
         <div class="rmain">
           <div class="final"><span class="tm h">BUZZ</span><span id="rH">0</span><span style="opacity:.45">-</span><span id="rA">0</span><span class="tm a" id="rAway">ぴえんFC</span></div>
           <div class="rank"><small>今日の配信の評価</small><b id="rRank">急上昇1位</b><span class="newbest" id="rBest" hidden>自己ベスト更新</span></div>
+          <div class="kpis">
+            <div class="kpi like"><small>いいね</small><b id="rLikes">0</b></div>
+            <div class="kpi"><small>最大同接</small><b id="rPeak">0</b></div>
+            <div class="kpi sub"><small>登録者</small><b id="rSubsK">+0</b></div>
+          </div>
+          <figure class="vgraph"><figcaption>同時視聴者数<span class="vleg"><i class="g"></i>ゴール<i class="c"></i>失点<i class="v"></i>乱入</span></figcaption><svg id="rGraph" viewBox="0 0 300 84" preserveAspectRatio="none" role="img" aria-label="試合中の同時視聴者数の推移"></svg><div class="vax"><span>0:00</span><span>0:30</span><span>1:00</span></div></figure>
+        </div>
+        <div class="rstats">
           <div class="slot" id="rSlot"><div class="slh"><b>ボーナススロット</b><small id="rSlotMsg">配信おつかれさまボーナス</small></div><div class="reels" aria-hidden="true"><div class="reel"><i></i></div><div class="reel"><i></i></div><div class="reel"><i></i></div></div></div>
           <div class="xpbox">
             <div class="xprow"><span class="lvchip">Lv <b id="rLvNum">1</b></span><div class="xpbar" aria-hidden="true"><i id="rXpFill"></i></div><span class="xpt" id="rXpText">+0 XP</span></div>
@@ -943,27 +976,16 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
             <div class="xprow subsrow"><i class="sh" id="rShield"></i><span class="subsl">登録者 <b id="rSubsN">0</b>人</span><span class="subsg" id="rSubsG">+0人</span><div class="sbar" aria-hidden="true"><i id="rSubsBar"></i></div><small class="subsnx" id="rSubsNx"></small></div>
             <div class="xprow" id="rStreakRow" hidden><span class="streak" id="rStreak">2連勝中</span></div>
           </div>
-        </div>
-        <div class="rstats">
-          <div class="sgroup"><h3>配信</h3><div class="stats">
-            <div class="stat key"><small>いいね</small><b id="rLikes">0</b></div>
-            <div class="stat"><small>最大同接</small><b id="rPeak">0</b></div>
-            <div class="stat"><small>最高バズ</small><b id="rLv">Lv0</b></div>
-            <div class="stat"><small>お題達成</small><b id="rDare">0 / 0</b></div>
-          </div></div>
-          <div class="sgroup"><h3>プレー</h3><div class="stats">
-            <div class="stat"><small>ゴール</small><b id="rGoals">0</b></div>
-            <div class="stat"><small>最長ゴール</small><b id="rLong">-</b></div>
-            <div class="stat"><small>PERFECT</small><b id="rPerf">0</b></div>
-            <div class="stat"><small>最大コンボ</small><b id="rCombo">0</b></div>
-            <div class="stat"><small>フェイント成功</small><b id="rFeints">0</b></div>
-            <div class="stat"><small>ワンタッチパス</small><b id="rOne">0</b></div>
-            <div class="stat"><small>必殺シュート</small><b id="rSp">0</b></div>
-          </div></div>
-          <div class="sgroup"><h3>事件</h3><div class="stats">
-            <div class="stat"><small>乱入した観客</small><b id="rInv">0人</b></div>
-            <div class="stat"><small>連行</small><b id="rCaught">0人</b></div>
-          </div></div>
+          <details class="rdet" id="rDet"><summary>プレーの記録</summary>
+            <dl class="rdl">
+              <div><dt>ゴール</dt><dd id="rGoals">0</dd></div><div><dt>最長ゴール</dt><dd id="rLong">-</dd></div>
+              <div><dt>PERFECT</dt><dd id="rPerf">0</dd></div><div><dt>最大コンボ</dt><dd id="rCombo">0</dd></div>
+              <div><dt>フェイント成功</dt><dd id="rFeints">0</dd></div><div><dt>ワンタッチパス</dt><dd id="rOne">0</dd></div>
+              <div><dt>必殺シュート</dt><dd id="rSp">0</dd></div><div><dt>最高バズ</dt><dd id="rLv">Lv0</dd></div>
+              <div><dt>お題達成</dt><dd id="rDare">0 / 0</dd></div><div><dt>乱入した観客</dt><dd id="rInv">0人</dd></div>
+              <div><dt>連行</dt><dd id="rCaught">0人</dd></div>
+            </dl>
+          </details>
         </div>
       </div>
       <div class="actions">
@@ -2153,6 +2175,7 @@ const INV_KIND = {
 function queueInvasion(delay,n,kind){ if (G.mode!=='match') return; if (!G.invQ || n>G.invQ.n) G.invQ={ delay, n, kind }; }
 function startInvasion(n,kind){
   if (G.mode!=='match') return;
+  if (G.vEv) G.vEv.push({ t:MATCH_TIME-G.clock, k:'v' });
   const K=INV_KIND[kind], free=fans.filter(f=>!f.active);
   n=Math.min(n,free.length); if (!n) return;
   if (!G.inv) G.inv={ t:0, police:false, policeAt:0, end:0, n:0, cops:0 };
@@ -2353,6 +2376,7 @@ function bubblesFrame(rdt){
 }
 function popAt(p,text,cls){ if (!p) return; const x=p.v?p.v[0]:p.x, z=p.v?p.v[1]:p.z; pop3D(text,x,2.3,z,cls); }
 function flash(kind){
+  const now=performance.now(); if (now-(flash.t||0)<340) return; flash.t=now;   // at most 3 flashes a second
   const el=$('flash');
   el.style.background = kind==='gold' ? 'radial-gradient(circle at 50% 55%,rgba(255,226,120,.75),rgba(255,180,40,.25) 45%,rgba(255,180,40,0) 75%)'
     : kind==='rainbow' ? 'conic-gradient(from 0deg,rgba(255,79,163,.45),rgba(255,233,77,.45),rgba(63,245,208,.45),rgba(143,123,255,.45),rgba(255,79,163,.45))' : 'rgba(255,255,255,.7)';
@@ -2708,7 +2732,7 @@ function showReveal(res){
 async function pullGacha(){
   if (gachaBusy || SV.tickets<1) return;
   AudioSys.init(); AudioSys.resume();
-  gachaBusy=true; gSkip=false; SV.tickets--; const res=rollGacha(); updateProfileUI();
+  gachaBusy=true; gSkip=reduceMotion; SV.tickets--; const res=rollGacha(); updateProfileUI();
   const ri=RORDER.indexOf(res.it.r), seq=fakeSeq(ri,false);
   gachaStageReset(); $('gSkip').hidden=false;
   await turnKnob(3);
@@ -2728,7 +2752,7 @@ function openTile(tl){
 async function pullGacha10(){
   if (gachaBusy || SV.tickets<10) return;
   AudioSys.init(); AudioSys.resume();
-  gachaBusy=true; gSkip=false; SV.tickets-=10;
+  gachaBusy=true; gSkip=reduceMotion; SV.tickets-=10;
   const res=[]; for (let i=0;i<10;i++) res.push(rollGacha(i===9 && !res.some(q=>RORDER.indexOf(q.it.r)>=2) ? 2 : 0));
   updateProfileUI();
   const best=res.reduce((a,b)=>RORDER.indexOf(b.it.r)>RORDER.indexOf(a.it.r)?b:a), bi=RORDER.indexOf(best.it.r);
@@ -4178,6 +4202,7 @@ function scored(s){
   AudioSys.S.net(); AudioSys.S.whistle(1);
   goalFx(s,team);
   if (G.mode!=='match') return;
+  if (G.vEv) G.vEv.push({ t:MATCH_TIME-G.clock, k:team===HOME?'g':'c' });
   updateScore();
   const lk=ball.lastKick, own=!(lk && lk.team===team);
   const dist = own ? 0 : (lk.dist || hyp(lk.x, lk.z-oppGoalZ(team)));
@@ -4332,7 +4357,8 @@ function keyHeld(list){ return list.some(k=>IN.keys.has(k)); }
 addEventListener('keydown', e=>{
   if (GAME_KEYS.has(e.code) && G.mode==='match') e.preventDefault();
   if (e.repeat) return;
-  if (!$('title').hidden && e.code==='Enter'){ startMatch('yuru'); return; }
+  if (!$('yk').hidden || !$('login').hidden) return;
+  if (!$('title').hidden && e.code==='Enter' && !(e.target.closest && e.target.closest('button,a,input,select,textarea,summary'))){ startMatch('yuru'); return; }   // Enter on a focused button is that button
   if (G.intro){ skipIntro(); return; }
   if (!$('help').hidden){ if (e.code==='Escape') closeHelp(); return; }
   if (!$('gacha').hidden){ if (e.code==='Escape') closeGacha(); return; }
@@ -4617,6 +4643,7 @@ function showResult(){
   SV.tickets+=tix; const ups=addXP(gain); SV.best=Math.max(SV.best||0,Math.round(G.likes)); saveSave();
   $('rTix').textContent=`ガチャ券 +${tix+ups}枚`; checkMissions(false); checkAch(); saveSave(); updateProfileUI();
   animateXP(beforeLv,beforeXp,gain);
+  drawViewerGraph(); $('rDet').open = matchMedia('(min-width:761px)').matches;
   $('copybox').hidden=true; $('copied').textContent='';
   $('result').hidden=false; $('touch').hidden=true; $('charge').hidden=true;
   $('againBtn').focus({preventScroll:true});
@@ -4662,9 +4689,25 @@ function slotDone(o,txt){
     if (o.big==='jackpot') celebrate({ kind:'jackpot', kicker:'BONUS SLOT', big:'JACKPOT!!', sub:txt }); }
   else AudioSys.S.pop();
 }
+// the stream's analytics: viewers per second, with the goals, concessions and invasions that moved them
+function drawViewerGraph(){
+  const svg=$('rGraph'), h=G.vHist||[], W=300, H=84; svg.innerHTML='';
+  const pts=[]; for (let i=0;i<MATCH_TIME;i++) if (h[i]!==undefined) pts.push([i,h[i]]);
+  if (pts.length<2) return;
+  const mx=Math.max(...pts.map(p=>p[1]))*1.12, X=t=>t/(MATCH_TIME-1)*W, Y=v=>H-4-v/mx*(H-12);
+  const NS='http://www.w3.org/2000/svg', mk=(n,a)=>{ const e=document.createElementNS(NS,n); for (const k in a) e.setAttribute(k,a[k]); svg.appendChild(e); return e; };
+  const line=pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ');
+  const gr=mk('linearGradient',{ id:'vgf', x1:0, y1:0, x2:0, y2:1 }); gr.innerHTML='<stop offset="0" stop-color="#ff3158" stop-opacity=".45"/><stop offset="1" stop-color="#ff3158" stop-opacity="0"/>';
+  mk('polygon',{ points:`${X(pts[0][0])},${H} ${line} ${X(pts[pts.length-1][0])},${H}`, fill:'url(#vgf)' });
+  mk('polyline',{ points:line, fill:'none', stroke:'#ff3158', 'stroke-width':2, 'vector-effect':'non-scaling-stroke', 'stroke-linejoin':'round' });
+  const vAt=t=>{ const i=clamp(Math.round(t),0,MATCH_TIME-1); return h[i]!==undefined?h[i]:pts[pts.length-1][1]; };
+  for (const e of G.vEv||[]){ const x=X(e.t), y=Y(vAt(e.t)), c={ g:'#3ff5d0', c:'#ff4fa3', v:'#ffe94d' }[e.k];
+    mk('line',{ x1:x, y1:y, x2:x, y2:H, stroke:c, 'stroke-width':1, 'stroke-dasharray':'2 2', 'vector-effect':'non-scaling-stroke', opacity:.7 });
+    mk('circle',{ cx:x, cy:y, r:3.6, fill:c, stroke:'#0d0822', 'stroke-width':1.2, 'vector-effect':'non-scaling-stroke' }); }
+}
 function showSubs(a,b,g){
   const nx=nextMs(b), pv=prevMsVal(b), t0=performance.now(), dur=reduceMotion?1:1400;
-  $('rSubsG').textContent=(g>=0?'+':'−')+fmt(Math.abs(g))+'人'; $('rSubsG').className='subsg'+(g<0?' neg':'');
+  $('rSubsG').textContent=(g>=0?'+':'−')+fmt(Math.abs(g))+'人'; $('rSubsG').className='subsg'+(g<0?' neg':''); $('rSubsK').textContent=(g>=0?'+':'−')+fmt(Math.abs(g)); $('rSubsK').parentNode.classList.toggle('neg',g<0);
   $('rShield').className='sh '+shieldOf(b); $('rSubsNx').textContent = nx ? `次は「${nx[1]}」 あと${fmtJP(nx[0]-b)}人` : 'すべての節目に到達';
   const f=()=>{ const k=Math.min(1,(performance.now()-t0)/dur), v=a+(b-a)*(1-Math.pow(1-k,3)); $('rSubsN').textContent=fmt(v);
     $('rSubsBar').style.width=((nx?clamp((v-pv)/(nx[0]-pv),0,1):1)*100).toFixed(1)+'%'; if (k<1) requestAnimationFrame(f); };
@@ -4677,7 +4720,7 @@ function resultText(){
 function startMatch(key){
   AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); Voice.unlock();
   G.mode='match'; G.diff=DIFFS[key]; applyParams();
-  G.score=[0,0]; G.clock=MATCH_TIME; G.buzz=0; G.fever=0; G.likes=0; G.hype=0; G.base=87+Math.round(Math.sqrt(SV.subs||0)/5); G.dullT=0; G.sympSP=false; G.peak=G.base; G.viewers=G.base; G.minDiff=0; G.committed=false; G.msnT=1; G.bestNoted=false; G.said10=false; G.resultShown=false; G.paused=false;
+  G.score=[0,0]; G.clock=MATCH_TIME; G.buzz=0; G.fever=0; G.likes=0; G.hype=0; G.base=87+Math.round(Math.sqrt(SV.subs||0)/5); G.dullT=0; G.sympSP=false; G.peak=G.base; G.viewers=G.base; G.minDiff=0; G.committed=false; G.msnT=1; G.bestNoted=false; G.vHist=[]; G.vEv=[]; G.said10=false; G.resultShown=false; G.paused=false;
   G.stats={goals:0,feints:0,onetouch:0,longest:0,steals:0,shots:0,invaders:0,caught:0,perfects:0,specials:0,blasts:0,dareN:0,dareOk:0,chips:0,longGoals:0};
   G.dare=null; G.dareUsed=[]; G.dareT=rand(6,9); clearTimeout(dareHide); $('dare').hidden=true;
   G.combo=0; G.comboT=0; G.comboMax=0; G.mod=null; G.streak=0; G.likesShown=0; G.hitstop=0; $('combo').hidden=true; $('roulette').hidden=true; $('toasts').innerHTML=''; bubbles.splice(0).forEach(b=>b.el.remove()); $('comments').classList.remove('dim'); $('pops').innerHTML=''; G.idleT=4; G.hintT=10; G.lastLv=0; G.maxLv=0; G.lastBuzzT=0; G.soloT=rand(8,13);
@@ -4909,6 +4952,7 @@ function effectsFrame(rdt){
   if (G.phase==='play'){ G.dullT+=rdt; if (G.dullT>10) G.base=Math.max(40,G.base-0.35*rdt); }
   G.hype*=Math.exp(-(G.dullT>10?0.05:0.012)*rdt);
   G.viewers=Math.max(5,G.base+G.hype+Math.sin(G.realT*0.7)*3);
+  if (G.mode==='match' && G.phase!=='end' && G.vHist){ const sec=Math.min(MATCH_TIME-1,Math.floor(MATCH_TIME-G.clock)); if (sec>=0 && G.vHist[sec]===undefined) G.vHist[sec]=Math.round(G.viewers); }
   if (G.mode==='match' && !G.committed && G.phase!=='end' && (G.msnT=(G.msnT||1)-rdt)<=0){ G.msnT=1; checkMissions(true); }
   AudioSys.setCrowd(G.phase==='end' ? 0.01 : 0.012+Math.min(0.05,G.viewers/18000)+(G.fever>0?0.03:0)+(G.inv?0.025:0));
   G.peak=Math.max(G.peak,G.viewers);
@@ -4998,6 +5042,15 @@ for (const [b,st] of [['voiceBtnP','voiceStatP'],['voiceBtnH','voiceStatH']]) $(
   Voice.test(); $(st).hidden=false; $(st).textContent=Voice.status();
 });
 let helpReturn=null;
+const DIALOGS=['result','pause','help','gacha','yk','login'], dlgFrom={};
+let prevFocus=null; document.addEventListener('focusout',e=>{ prevFocus=e.target; },true);
+function syncInert(){
+  const open=[...document.querySelectorAll('#app > .modal:not([hidden])')], top=open[open.length-1]||null;
+  for (const el of document.querySelectorAll('#app > *')){ const keep=!top || el===top || el.id==='notes' || el.id==='celeb' || el.id==='flash'; el.inert=!keep; }
+}
+new MutationObserver(recs=>{ let any=false; for (const r of recs){ const el=r.target; if (!DIALOGS.includes(el.id)) continue; any=true; if (el.hidden){ const f=dlgFrom[el.id]; delete dlgFrom[el.id]; if (f && f.isConnected && (document.activeElement===document.body || el.contains(document.activeElement))) setTimeout(()=>f.focus({preventScroll:true}),0); } else if (!(el.id in dlgFrom)){ const a=document.activeElement; dlgFrom[el.id]= el.contains(a) ? prevFocus : a; } } if (any) syncInert(); })
+  .observe(document.getElementById('app'),{ subtree:true, attributes:true, attributeFilter:['hidden'], attributeOldValue:false });
+document.addEventListener('keydown',e=>{ if (e.code!=='Escape') return; if (!$('login').hidden){ $('lgOk').click(); e.stopImmediatePropagation(); } else if (!$('yk').hidden){ $('ykClose').click(); e.stopImmediatePropagation(); } },true);
 function openHelp(from){ helpReturn=from||null; $('help').hidden=false; $('helpClose').focus({preventScroll:true}); }
 function closeHelp(){ $('help').hidden=true; if (helpReturn) helpReturn.focus({preventScroll:true}); }
 $('helpBtnT').addEventListener('click',()=>openHelp($('helpBtnT')));
