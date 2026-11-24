@@ -1396,7 +1396,7 @@ const AudioSys = (() => {
     if (B.pad && s===0) pad(t,B.ch[bar],S16*16,B.pad,B.padCut);
     if (B.stab && B.stab.includes(s)) stab(t,B.ch[bar],B.stabW);
     if (B.bp[s]!==undefined){ const m=B.bass[bar]+B.bp[s]-12;
-      if (B.n808) osc('sine',mtof(m),t,S16*6,0.3,musG,mtof(m-3));
+      if (B.n808) osc('sine',mtof(m),t,S16*6,0.22,musG,mtof(m-3));
       else { osc(B.bassW||'triangle',mtof(m),t,S16*1.6,B.bassW?0.07:0.18,musG); osc('sine',mtof(m),t,S16*1.8,0.15,musG); } }
     if (B.kick.includes(s)) osc('sine',B.taiko?95:140,t,B.taiko?0.3:0.16,B.taiko?0.6:0.45,musG,42);
     if (B.snare.includes(s)) noise(t,0.12,0.18,musG,'bandpass',B.taiko?3600:1800,B.taiko?2:0.7);
@@ -1407,16 +1407,49 @@ const AudioSys = (() => {
     if (B.vinyl && s%4===0) noise(t,0.02,0.012,musG,'highpass',3000,0.5);
   }
   function tick(){ if(!ctx || ctx.state!=='running') return; if (nextT < ctx.currentTime) nextT=ctx.currentTime+0.05; while(nextT < ctx.currentTime+0.15){ schedule(stepI,nextT); nextT+=S16; stepI++; } }
+  // Recorded tracks (e.g. made with Suno) take over from the synth for the BGM ids listed here.
+  // { m_def:{ src:'assets/bgm/m_def.m4a', loop:[start,end] /* seconds, optional */, gain:1 /* optional */ } }
+  // Ids without an entry, or whose file fails to load, keep the synth version above.
+  const BGM_FILES = {};
+  let bgmId='m_def', musicOn=false, fileSrc=null, fileG=null, fileId=null, fileReq=0;
+  const bufs=new Map();
+  function loadBuf(id){
+    if (bufs.has(id)) return bufs.get(id);
+    const p=fetch(BGM_FILES[id].src).then(r=>{ if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(ab=>new Promise((res,rej)=>ctx.decodeAudioData(ab,res,rej)))
+      .then(buf=>{ const d=buf.getChannelData(0); let q=0,n=0; for (let i=0;i<d.length;i+=97){ q+=d[i]*d[i]; n++; } buf.norm=Math.min(2,0.09/Math.max(1e-4,Math.sqrt(q/Math.max(1,n)))); return buf; })   // level-match loud masters to the synth mix
+      .catch(()=>null);
+    bufs.set(id,p); for (const k of [...bufs.keys()]) if (bufs.size>2 && k!==id) bufs.delete(k);   // keep at most two decoded tracks
+    return p;
+  }
+  function startSynth(){ if (timer) return; nextT=ctx.currentTime+0.08; stepI=0; timer=setInterval(tick,30); }
+  function stopSynth(){ if (timer){ clearInterval(timer); timer=null; } }
+  function stopFile(){ if (!fileSrc) return; const t=ctx.currentTime; fileG.gain.cancelScheduledValues(t); fileG.gain.setTargetAtTime(0.0001,t,0.25); try { fileSrc.stop(t+1.5); } catch(e){} fileSrc=null; fileG=null; }
+  function playFile(buf,f){
+    const t=ctx.currentTime, src=ctx.createBufferSource(), g=ctx.createGain(), lvl=(f.gain||1)*(buf.norm||1);
+    src.buffer=buf; src.loop=true; if (f.loop){ src.loopStart=f.loop[0]; src.loopEnd=Math.min(f.loop[1],buf.duration); }
+    src.playbackRate.value = fever ? 1.06 : 1;
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(lvl,t+0.8);
+    src.connect(g); g.connect(musG); src.start(t); fileSrc=src; fileG=g;
+  }
+  function refreshMusic(){
+    if (!ctx || !musicOn) return;
+    const f=BGM_FILES[bgmId];
+    if (!f){ fileId=null; fileReq++; stopFile(); startSynth(); return; }
+    if (fileId===bgmId) return;                 // already playing or loading this track
+    fileId=bgmId; const req=++fileReq;
+    loadBuf(bgmId).then(buf=>{ if (req!==fileReq) return; if (!buf){ fileId=null; stopFile(); startSynth(); return; } stopSynth(); stopFile(); playFile(buf,f); });
+  }
   return {
     init, resume, S,
     setCrowd(level){ if(!ctx) return; startBed(); const now=ctx.currentTime; if (now<bedNext) return; bedNext=now+0.25; bedG.gain.setTargetAtTime(Math.max(0.0001,level*0.45),now,0.8); },
-    startMusic(){ if(!ctx||timer) return; nextT=ctx.currentTime+0.08; stepI=0; timer=setInterval(tick,30); },
-    setBgm(id){ const b=BGMS[id]||BGMS.m_def; if (b===BG) return; BG=b; S16=60/BG.bpm/4; stepI=Math.ceil(stepI/16)*16; },
-    setFever(v){ fever=v; },
+    startMusic(){ if(!ctx) return; musicOn=true; refreshMusic(); },
+    setBgm(id){ bgmId=BGMS[id]?id:'m_def'; const b=BGMS[bgmId]; if (b!==BG){ BG=b; S16=60/BG.bpm/4; stepI=Math.ceil(stepI/16)*16; } refreshMusic(); },
+    setFever(v){ fever=v; if (fileSrc) fileSrc.playbackRate.setTargetAtTime(v?1.06:1, ctx.currentTime, 0.3); },
     setOn(v){ on=v; if(master) master.gain.setTargetAtTime(v?0.9:0, ctx.currentTime, 0.05); },
     get on(){ return on; },
     get started(){ return !!ctx; },
-    debug(){ if (!an) return { state: ctx?ctx.state:'none', rms:0 }; const d=new Float32Array(an.fftSize); an.getFloatTimeDomainData(d); let r=0; for (const x of d) r+=x*x; return { state:ctx.state, rms:Math.sqrt(r/d.length) }; },
+    debug(){ const m={ bgm:bgmId, file:fileSrc?fileId:null, synth:!!timer }; if (!an) return Object.assign(m,{ state: ctx?ctx.state:'none', rms:0 }); const d=new Float32Array(an.fftSize); an.getFloatTimeDomainData(d); let r=0; for (const x of d) r+=x*x; return Object.assign(m,{ state:ctx.state, rms:Math.sqrt(r/d.length) }); },
   };
 })();
 
