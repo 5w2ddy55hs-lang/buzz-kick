@@ -275,6 +275,10 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
 .final .tm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .slh b{white-space:nowrap}
 @media (max-width:420px){ .rhead h2{font-size:18px} .reel{width:38px;height:46px} .reel span{font-size:22px} .slot{gap:8px;padding:9px 10px} .kpi b{font-size:20px} }
+.emote{position:relative;margin:0;border-radius:var(--r);overflow:hidden;border:2px solid var(--lemon);box-shadow:0 0 0 3px rgba(255,233,77,.18),0 10px 24px rgba(0,0,0,.4);background:#0d0822}
+.emote canvas{display:block;width:100%;aspect-ratio:16/9;height:auto}
+.emote figcaption{position:absolute;left:8px;right:8px;top:8px;display:flex;align-items:center;gap:8px;font:900 12px/1 var(--body);color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none}
+.emote figcaption b{margin-left:auto;font:400 13px/1 var(--display);color:var(--lemon);background:rgba(13,8,34,.7);padding:5px 8px;border-radius:6px}
 .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-block:1px solid var(--line)}
 .kpi{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 4px;min-width:0}
 .kpi+.kpi{border-left:1px solid var(--line)}
@@ -961,6 +965,7 @@ kbd{display:inline-block;font:900 11px/1 var(--body);background:rgba(255,255,255
         <div class="rmain">
           <div class="final"><span class="tm h">BUZZ</span><span id="rH">0</span><span style="opacity:.45">-</span><span id="rA">0</span><span class="tm a" id="rAway">ぴえんFC</span></div>
           <div class="rank"><small>今日の配信の評価</small><b id="rRank">急上昇1位</b><span class="newbest" id="rBest" hidden>自己ベスト更新</span></div>
+          <figure class="emote" id="rEmote" hidden><canvas id="rEmoteCv" width="384" height="216" aria-label="勝ったチームのメンバーが踊っている"></canvas><figcaption><span class="livepill"><i></i>LIVE</span>勝利のエモート<b id="rEmoteName"></b></figcaption></figure>
           <div class="kpis">
             <div class="kpi like"><small>いいね</small><b id="rLikes">0</b></div>
             <div class="kpi"><small>最大同接</small><b id="rPeak">0</b></div>
@@ -4003,7 +4008,7 @@ function movePlayer(p,dt){
   const lim=0.32;
   if (p.x>HW-lim){ p.x=HW-lim; if(p.vx>0)p.vx=0; } else if (p.x<-HW+lim){ p.x=-HW+lim; if(p.vx<0)p.vx=0; }
   if (p.z>HL-lim){ p.z=HL-lim; if(p.vz>0)p.vz=0; } else if (p.z<-HL+lim){ p.z=-HL+lim; if(p.vz<0)p.vz=0; }
-  if (p.isGK){ const gz=ownGoalZ(p.team), dd=hyp(p.x,p.z-gz); if (dd>6.2){ p.x=p.x/dd*6.2; p.z=gz+(p.z-gz)/dd*6.2; } }
+  if (p.isGK && !G.emote){ const gz=ownGoalZ(p.team), dd=hyp(p.x,p.z-gz); if (dd>6.2){ p.x=p.x/dd*6.2; p.z=gz+(p.z-gz)/dd*6.2; } }
   let fx,fz; const sp=hyp(p.vx,p.vz);
   if (sp>0.6){ fx=p.vx; fz=p.vz; } else { fx=p.lookX-p.x; fz=p.lookZ-p.z; }
   if (hyp(fx,fz)>0.01 && !(p.isGK && (p.dive.t>0||p.downT>0))){ const da=angDiff(Math.atan2(fx,fz),p.facing), r=(ball.owner===p?12:10)*dt; p.facing+=clamp(da,-r,r); }
@@ -4452,10 +4457,46 @@ function computeVis(p,dt){
     if (win){ y=Math.abs(Math.sin(G.simTime*7+p.id))*0.5; arms=1; } else if (!p.isGK) tx=0.28;
   }
   if (p.blown>0){ y=p.by; tx = p.by>0 ? (1.6-p.blown)*p.spin : 1.45; tz=0; arms=1; }
+  if (G.emote && p.team===HOME){ emotePose(p,v); return; }
   v[0]=p.x; v[1]=p.z; v[2]=p.facing; v[3]=p.ph; v[4]=clamp(sp/6.5,0,1.15); v[5]=tz; v[6]=tx; v[7]=y; v[8]=Math.max(0,p.kickT); v[9]=arms;
   // which way the player moves relative to where they face (+ = their left), for the 8-way jog
   if (sp>0.3){ const f=p.facing; v[10]=Math.atan2(p.vx*Math.cos(f)-p.vz*Math.sin(f), p.vx*Math.sin(f)+p.vz*Math.cos(f)); }
   const [aid,at]=actionOf(p); v[11]=aid; v[12]=at;
+}
+// victory emotes on the result screen: the home team lines up and dances (each dancer cycles through the moves)
+const EMOTES=[['ジャンプ',0],['ツイスト',1],['スピン',2],['サイドステップ',3],['ウェーブ',4]];
+function emotePose(p,v){
+  const E=G.emote, t=G.simTime-E.t0, slot=E.slot.get(p)||0, k=(slot+Math.floor(t/2.6))%EMOTES.length, m=EMOTES[k][1], b=t*Math.PI*2*2.2;   // ~132 bpm
+  let x=p.x, facing=0, y=0, tz=0, tx=0, arms=0, amp=0, ph=0;
+  if (p.isGK){ arms=0.5+0.5*Math.sin(b*2); y=Math.abs(Math.sin(b))*0.08; }   // the keeper claps along
+  else if (m===0){ y=Math.abs(Math.sin(b*0.5))*0.6; arms=1; tx=-0.15*Math.abs(Math.sin(b*0.5)); }
+  else if (m===1){ facing=Math.sin(b)*0.9; tz=Math.sin(b)*0.16; amp=0.45; ph=b*2; arms=0.5+0.5*Math.sin(b); }
+  else if (m===2){ facing=(t*7)%(Math.PI*2); y=Math.abs(Math.sin(b))*0.14; arms=1; }
+  else if (m===3){ x+=Math.sin(b*0.5)*0.35; tz=Math.cos(b*0.5)*0.22; amp=0.8; ph=b*2; arms=Math.sin(b*0.5)>0?1:0.2; }
+  else { tz=Math.sin(b+slot*0.9)*0.3; y=Math.max(0,Math.sin(b+slot*0.9))*0.18; arms=0.5+0.5*Math.sin(b+slot*0.9+1.2); }
+  v[0]=x; v[1]=p.z; v[2]=facing; v[3]=ph; v[4]=amp; v[5]=tz; v[6]=tx; v[7]=y; v[8]=0; v[9]=arms; v[10]=0; v[11]=0; v[12]=0;
+  if (slot===E.focus) E.name=EMOTES[k][0];
+}
+const EMO_W=384, EMO_H=216, emoCam=new THREE.PerspectiveCamera(30,EMO_W/EMO_H,0.1,200), emoPix=new Uint8Array(EMO_W*EMO_H*4);
+let emoRT=null, emoCtx=null, emoImg=null, emoTick=0;
+function startEmote(){
+  const H=teams[HOME].all, sl=new Map(); let i=0;
+  const line=[...teams[HOME].field, teams[HOME].gk];
+  line.forEach((p,j)=>{ p.x=(j-(line.length-1)/2)*1.25; p.z=0; p.vx=p.vz=0; p.facing=0; p.act=null; p.blown=0; p.stun=0; sl.set(p,j); });
+  for (const q of teams[AWAY].all){ q.x=Math.sign(q.x||1)*(HW-1); q.z=6+q.id%3; q.vx=q.vz=0; }
+  Object.assign(ball,{ owner:null, x:0.3, y:BALL_R, z:1.4, vx:0, vy:0, vz:0, wx:0, wy:0, wz:0 });
+  emoCam.position.set(0,1.7,6.9); emoCam.lookAt(0,0.92,0);
+  G.emote={ t0:G.simTime, slot:sl, focus:1, name:'' };
+  if (!emoRT){ emoRT=new THREE.WebGLRenderTarget(EMO_W,EMO_H); emoCtx=$('rEmoteCv').getContext('2d'); emoImg=emoCtx.createImageData(EMO_W,EMO_H); }
+  $('rEmote').hidden=false;
+}
+function stopEmote(){ G.emote=null; $('rEmote').hidden=true; }
+// draw the small window: render the dancers into a texture and copy it to the result card
+function emoteFrame(){
+  if (!G.emote || $('result').hidden || (emoTick++&1)) return;
+  renderer.setRenderTarget(emoRT); renderer.render(scene,emoCam); renderer.readRenderTargetPixels(emoRT,0,0,EMO_W,EMO_H,emoPix); renderer.setRenderTarget(null);
+  const d=emoImg.data, row=EMO_W*4; for (let y=0;y<EMO_H;y++) d.set(emoPix.subarray((EMO_H-1-y)*row,(EMO_H-y)*row), y*row);
+  emoCtx.putImageData(emoImg,0,0); $('rEmoteName').textContent=G.emote.name;
 }
 function actionOf(p){
   if (p.blown>0) return p.by>0.05 ? [ACT.blown, clamp((1.7-p.blown)/1.1,0,1)*0.65] : [ACT.fallen, G.simTime];
@@ -4490,7 +4531,7 @@ function applyPose(p,v){
     const R=p.skinObj.userData.rig;
     if (R){ if (R.own) poseOwn(R,v); else poseRig(R,v); p.skinObj.rotation.set(amp*0.08, 0, Math.sin(ph)*0.03*amp);
       if (ANIM && R.root){   // the clip already leans, dives and lies down: keep only the facing (and the blast spin in the air)
-        const blownAir=(v[11]|0)===ACT.blown; g.rotation.set(blownAir?v[6]:0, v[2], 0); g.position.y = blownAir ? v[7] : 0;
+        const blownAir=(v[11]|0)===ACT.blown, dance=G.emote&&p.team===HOME; g.rotation.set(blownAir?v[6]:0, v[2], dance?v[5]:0); g.position.y = blownAir||dance ? v[7] : 0;
         p.skinObj.rotation.set(0,0,0); p.skinObj.position.y=0; return; } }
     else { const kick = v[8]>0 ? Math.sin(Math.PI*(1-v[8]/0.25)) : 0; p.skinObj.rotation.set(amp*0.16-kick*0.22, 0, Math.sin(ph)*0.08*amp); }
     p.skinObj.position.y = up*0.15;
@@ -4643,6 +4684,7 @@ function showResult(){
   SV.tickets+=tix; const ups=addXP(gain); SV.best=Math.max(SV.best||0,Math.round(G.likes)); saveSave();
   $('rTix').textContent=`ガチャ券 +${tix+ups}枚`; checkMissions(false); checkAch(); saveSave(); updateProfileUI();
   animateXP(beforeLv,beforeXp,gain);
+  if (win) startEmote(); else stopEmote();
   drawViewerGraph(); $('rDet').open = matchMedia('(min-width:761px)').matches;
   $('copybox').hidden=true; $('copied').textContent='';
   $('result').hidden=false; $('touch').hidden=true; $('charge').hidden=true;
@@ -4718,6 +4760,7 @@ function resultText(){
   return `BUZZ KICK!!（${G.diff.label}）で ${G.awayName} に ${h}-${a} ${h>a?'勝利':h<a?'敗北':'引き分け'}｜いいね ${fmt(G.likes)}｜最大同接 ${fmt(G.peak)}人（終了時 ${fmt(G.viewers)}人）${G.stats.dareN?`｜お題 ${G.stats.dareOk}/${G.stats.dareN}`:''}${G.stats.invaders?`｜乱入 ${G.stats.invaders}人（連行 ${G.stats.caught}人）`:''}｜評価「${rankOf(G.likes)}」 #バズキック #屋上フットサル`;
 }
 function startMatch(key){
+  stopEmote();
   AudioSys.init(); AudioSys.resume(); AudioSys.startMusic(); Voice.unlock();
   G.mode='match'; G.diff=DIFFS[key]; applyParams();
   G.score=[0,0]; G.clock=MATCH_TIME; G.buzz=0; G.fever=0; G.likes=0; G.hype=0; G.base=87+Math.round(Math.sqrt(SV.subs||0)/5); G.dullT=0; G.sympSP=false; G.peak=G.base; G.viewers=G.base; G.minDiff=0; G.committed=false; G.msnT=1; G.bestNoted=false; G.vHist=[]; G.vEv=[]; G.said10=false; G.resultShown=false; G.paused=false;
@@ -4736,6 +4779,7 @@ function startMatch(key){
   startIntro();
 }
 function toTitle(){
+  stopEmote();
   G.mode='attract'; G.paused=false; G.human=null; Voice.stop(); AudioSys.setCrowd(0.008); clearInvasion(); endCine(); G.intro=null; $('stream').hidden=true; applyParams();
   ['result','pause','replay','help'].forEach(id=>$(id).hidden=true);
   $('hud').hidden=true; $('touch').hidden=true; $('banner').hidden=true; $('title').hidden=false; G.dare=null; $('dare').hidden=true;
@@ -4875,6 +4919,7 @@ function render(rdt){
     if (q.g.visible!==vis) q.g.visible=vis;
   }
   renderer.render(scene,camera);
+  emoteFrame();
   bubblesFrame(rdt);
 }
 // what the chat talks about when nothing special just happened
